@@ -1,5 +1,7 @@
 # `xref`
 
+
+
 ```js
 import xref from 'xref-js'
 
@@ -8,27 +10,48 @@ import xref from 'xref-js'
  * turns an MPA into and SPA using the native browser 
  * viewTransiton() API!
  * 
- * prefetch: prefetches all internal Links 
- * (relative or absolute links) on the given event
- * default event: 'mouseover'
- * delay: [n]ms after the event happenedm default: 10
- * active: is the prefetch even active (it's opt-in!), default is false
- * 
- * transition:
- * 
 */
 xref(
   {
+    /** 
+     * swapHtml is an optional parameter where i can define
+     * the html element that should be transitioned, all elements that
+     * are outisde the eg. <main> tag dont get swapperd at all!
+     * if i dont set `swapHtml`, assume i want to change the whole
+     * source code of the pages <body> tag
+     * this doent not apply to all elements inside <head> tag,
+     * the <head> is handleled seperately by xref,
+     * it's get's re-rendered if the page changes
+    */
+    swapHtml: 'main', 
+    /**
+     * if prefecth.isActive === true
+     * all links get prefetched by the browser/html
+     * on the given event (eg "mouseover in this case)
+     * the prefetch.delay is a timeout for the prefetch (event triggered + timeout = then prefetch the html page)
+    */
     prefetch: {
       isActive: true,
-      event: 'click',
+      event: 'mouseover',
       delay: 1000,
     },
+    /**
+     * the transition object can take
+     * transition.duration: time of viewTransition in MS
+     * transition.delay: the delay of the viewportTRansition after triggering a link
+     * transition.easing: the easing function ('ease-in', 'cubic-bezier(.01,.67,.83,1)', ...)
+    */
     transition: {
       duration: 1000,
       delay: 1000,
       easing: 'ease',
       timeline: 'sequential', // or 'parallel'
+      /** 
+       * 'in' & 'out' object can have 'from' and/or 'to' object in it
+       * inside 'from' and 'to' the object key/value pairs get rendered to
+       * CSS Keyframes
+       * 
+      */
       in: {
         from: {
           backgroundColor: 'green', // CSS -> background-color: green;
@@ -53,7 +76,7 @@ xref(
 
 /**
  * using/calling this function is optional.
- * you can overwrite the global transition on a
+ * you can *overwrite* the global transition on a
  * given set of elements and appliying a custom
  * transition to all <element>, #id, .class selector
  * 
@@ -121,3 +144,10 @@ xref.animate(allMyButtons, {
 
 
 ```
+
+## todo
+
+- bug: transitioning set the head tags inside the <body> of the new page and doesnt overwrite the old
+- bug: use history API to use bakc/forward button of browser -> animate and change the url!
+- bug: prfetch event is not implemented
+- test: install `jest` and setup test for all functions
