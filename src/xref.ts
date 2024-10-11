@@ -1,109 +1,229 @@
-import { setupViewTransitions, animate } from './transition';
-import { setupPrefetching } from './prefetch';
-
-export interface XrefOptions {
+interface XrefOptions {
   swapHtml?: string;
-  prefetch?: {
-    isActive: boolean;
-    event: string;
-    delay: number;
-  };
-  transition?: {
-    duration: number;
-    delay: number;
-    easing: string;
-    timeline: 'sequential' | 'parallel';
-    in?: TransitionDirection;
-    out?: TransitionDirection;
-  };
+  transition?: TransitionOptions;
 }
 
-export interface TransitionDirection {
+interface TransitionOptions {
+  duration?: number;
+  delay?: number;
+  easing?: string;
+  timeline?: "sequential" | "parallel";
+  in?: TransitionState;
+  out?: TransitionState;
+}
+
+interface TransitionState {
   from?: Record<string, string | number>;
   to?: Record<string, string | number>;
 }
 
-const defaultOptions: XrefOptions = {
-  swapHtml: 'body',
-  prefetch: {
-    isActive: false,
-    event: 'mouseover',
-    delay: 0,
-  },
-  transition: {
-    duration: 300,
-    delay: 0,
-    easing: 'ease',
-    timeline: 'sequential',
-  },
-};
+class Xref {
+  private options: XrefOptions;
+  private tailwindStyleElement: HTMLStyleElement | null = null;
 
-function xref(options: XrefOptions = {}): void {
-  console.log('xref initialized with options:', options);
-  if (!xref.isSupported) {
-    console.warn("View Transitions API is not supported in this browser. Xref will not apply transitions.");
-    return;
+  constructor(options: XrefOptions = {}) {
+    this.options = options;
+    this.init();
   }
 
-  const mergedOptions = { ...xref.defaultOptions, ...options };
-
-  setupViewTransitions(mergedOptions);
-  
-  if (mergedOptions.prefetch?.isActive) {
-    setupPrefetching(mergedOptions.prefetch);
+  private init() {
+    this.interceptClicks();
+    this.handlePopState();
+    this.initTailwindStyle();
   }
 
-  handleBrowserNavigation();
-}
+  private removeInlineStylesFromRoot() {
+    /**
+     * remove the transitioned nline styles from the swapHtml element
+     */
 
-function handleBrowserNavigation(): void {
-  window.addEventListener('popstate', () => {
-    const url = window.location.href;
-    xref.navigateTo(url, true);
-  });
-}
+    const swapHtml = this.options.swapHtml || "body";
+    const rootElement = document.querySelector(swapHtml);
+    if (!rootElement) {
+      return;
+    }
 
-xref.navigateTo = (url: string, isBackForward: boolean = false): void => {
-  console.log('navigateTo called with url:', url);
-  if (!isBackForward) {
-    history.pushState(null, '', url);
+    rootElement.removeAttribute("style");
   }
-  
-  const startViewTransition = (document as any).startViewTransition;
-  if (typeof startViewTransition === 'function') {
-    console.log('Starting view transition');
-    startViewTransition(() => {
-      return fetch(url)
-        .then(response => response.text())
-        .then(html => {
-          console.log('Fetched new page content');
-          const parser = new DOMParser();
-          const newDocument = parser.parseFromString(html, 'text/html');
-          
-          // Update the <head> content
-          document.head.innerHTML = newDocument.head.innerHTML;
 
-          // Update the <body> or specified element content
-          const targetElement = document.querySelector(xref.defaultOptions.swapHtml || 'body') as HTMLElement;
-          const sourceElement = newDocument.querySelector(xref.defaultOptions.swapHtml || 'body') as HTMLElement;
-          
-          if (targetElement && sourceElement) {
-            console.log('Updating page content');
-            targetElement.innerHTML = sourceElement.innerHTML;
-          }
+  private initTailwindStyle() {
+    this.tailwindStyleElement = document.querySelector("style[data-tailwind]");
+    if (!this.tailwindStyleElement) {
+      this.tailwindStyleElement = document.createElement("style");
+      this.tailwindStyleElement.setAttribute("data-tailwind", "true");
+      document.head.appendChild(this.tailwindStyleElement);
+    }
+  }
 
-          window.scrollTo(0, 0);
-        });
+  private interceptClicks() {
+    document.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement;
+      const anchor = target.closest("a");
+      if (anchor && this.shouldIntercept(anchor)) {
+        event.preventDefault();
+        this.navigate(anchor.href);
+      }
     });
-  } else {
-    console.warn('View Transitions not supported, falling back to normal navigation');
-    window.location.href = url;
   }
-};
 
-xref.version = '0.0.2'; // Update this with your current version
-xref.defaultOptions = defaultOptions;
-xref.isSupported = typeof document !== 'undefined' && 'startViewTransition' in (document as any);
-xref.animate = animate;
+  private shouldIntercept(anchor: HTMLAnchorElement): boolean {
+    const isSameOrigin = anchor.origin === window.location.origin;
+    const isNotHash = anchor.hash === "";
+    return isSameOrigin && isNotHash;
+  }
+
+  private handlePopState() {
+    window.addEventListener("popstate", () => {
+      this.navigate(window.location.href, false);
+    });
+  }
+
+  private async navigate(url: string, pushState: boolean = true) {
+    try {
+      const content = await this.fetchPage(url);
+      if (content) {
+        if (pushState) {
+          history.pushState(null, "", url);
+        }
+        this.updatePage(content);
+      }
+    } catch (error) {
+      console.error("Navigation failed:", error);
+    }
+  }
+
+  private async fetchPage(url: string): Promise<string> {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.text();
+  }
+
+  private updatePage(content: string) {
+    const parser = new DOMParser();
+    const newDoc = parser.parseFromString(content, "text/html");
+
+    this.updateHead(newDoc);
+    this.updateBody(newDoc);
+  }
+
+  private updateHead(newDoc: Document) {
+    const oldHead = document.head;
+    const newHead = newDoc.head;
+
+    // Update Tailwind styles
+    const newTailwindStyle = newDoc.querySelector("style[data-tailwind]");
+    if (newTailwindStyle && this.tailwindStyleElement) {
+      this.tailwindStyleElement.textContent = newTailwindStyle.textContent;
+    }
+
+    // Remove old elements except Tailwind style
+    Array.from(oldHead.children).forEach((child) => {
+      if (child !== this.tailwindStyleElement) {
+        child.remove();
+      }
+    });
+
+    // Add new elements
+    Array.from(newHead.children).forEach((child) => {
+      if (child.tagName !== "STYLE" || !child.getAttribute("data-tailwind")) {
+        oldHead.appendChild(child.cloneNode(true));
+      }
+    });
+
+    // Update title
+    document.title = newDoc.title;
+  }
+
+  private updateBody(newDoc: Document) {
+    const oldBody = document.body;
+    const newBody = newDoc.body;
+
+    if (!newBody) {
+      console.error("New document does not contain a body tag");
+      return;
+    }
+
+    this.performTransition(oldBody, newBody);
+  }
+
+  private performTransition(oldBody: HTMLElement, newBody: HTMLElement) {
+    const transitionOptions = this.options.transition || {};
+    const duration = transitionOptions.duration || 300;
+    const delay = transitionOptions.delay || 0;
+    const easing = transitionOptions.easing || "ease";
+
+    // Apply 'out' transition
+    this.applyTransition(oldBody, transitionOptions.out, duration, delay, easing, "out");
+
+    // Apply 'in' transition
+    setTimeout(
+      () => {
+        oldBody.innerHTML = newBody.innerHTML;
+        Array.from(newBody.attributes).forEach((attr) => {
+          if (attr.name !== "style") {
+            oldBody.setAttribute(attr.name, attr.value);
+          }
+        });
+        this.applyTransition(oldBody, transitionOptions.in, duration, 0, easing, "in");
+      },
+      transitionOptions.timeline === "sequential" ? duration + delay : delay
+    );
+  }
+
+  private applyTransition(element: HTMLElement, transitionState: TransitionState | undefined, duration: number, delay: number, easing: string, direction: "in" | "out") {
+    if (!transitionState) return;
+
+    const { from, to } = transitionState;
+    const transitionProperties: string[] = [];
+
+    let styles = "";
+
+    if (from) {
+      Object.entries(from).forEach(([key, value]) => {
+        const prop = this.camelToKebab(key);
+        styles += `${prop}: ${value}; `;
+        transitionProperties.push(prop);
+      });
+    }
+
+    styles += `transition: ${transitionProperties.map((prop) => `${prop} ${duration}ms ${easing} ${delay}ms`).join(", ")};`;
+    element.setAttribute("style", styles);
+
+    if (to) {
+      requestAnimationFrame(() => {
+        let newStyles = "";
+        Object.entries(to).forEach(([key, value]) => {
+          const prop = this.camelToKebab(key);
+          newStyles += `${prop}: ${value}; `;
+        });
+        newStyles += `transition: ${transitionProperties.map((prop) => `${prop} ${duration}ms ${easing} ${delay}ms`).join(", ")};`;
+        element.setAttribute("style", newStyles);
+      });
+    }
+
+    const cleanup = () => {
+      // Remove the entire style attribute
+      element.removeAttribute("style");
+      element.removeEventListener("transitionend", cleanup);
+    };
+
+    element.addEventListener(
+      "transitionend",
+      () => {
+        cleanup;
+        document.querySelector(this.options.swapHtml || "body")?.removeAttribute("style");
+      },
+      { once: false }
+    );
+  }
+
+  private camelToKebab(str: string): string {
+    return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+  }
+}
+
+function xref(options: XrefOptions = {}): Xref {
+  return new Xref(options);
+}
 
 export default xref;

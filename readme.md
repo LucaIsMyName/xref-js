@@ -1,6 +1,6 @@
 # `xref`
 
-
+This package is a Experimental. API is subject to change.
 
 ```js
 import xref from 'xref-js'
@@ -142,12 +142,18 @@ xref.animate(allMyButtons, {
   }
 })
 
+/** ---------
+ * Not implemented yet
+--------- */
+
+/**
+ * xref.not(Array<string>)
+ * */
+xref.not([
+  'header',
+  '#myId'
+])
+
+
 
 ```
-
-## todo
-
-- bug: transitioning set the head tags inside the <body> of the new page and doesnt overwrite the old
-- bug: use history API to use bakc/forward button of browser -> animate and change the url!
-- bug: prfetch event is not implemented
-- test: install `jest` and setup test for all functions

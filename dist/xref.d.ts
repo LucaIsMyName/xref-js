@@ -1,29 +1,37 @@
-export interface XrefOptions {
+interface XrefOptions {
     swapHtml?: string;
-    prefetch?: {
-        isActive: boolean;
-        event: string;
-        delay: number;
-    };
-    transition?: {
-        duration: number;
-        delay: number;
-        easing: string;
-        timeline: 'sequential' | 'parallel';
-        in?: TransitionDirection;
-        out?: TransitionDirection;
-    };
+    transition?: TransitionOptions;
 }
-export interface TransitionDirection {
+interface TransitionOptions {
+    duration?: number;
+    delay?: number;
+    easing?: string;
+    timeline?: "sequential" | "parallel";
+    in?: TransitionState;
+    out?: TransitionState;
+}
+interface TransitionState {
     from?: Record<string, string | number>;
     to?: Record<string, string | number>;
 }
-declare function xref(options?: XrefOptions): void;
-declare namespace xref {
-    var navigateTo: (url: string, isBackForward?: boolean) => void;
-    var version: string;
-    var defaultOptions: XrefOptions;
-    var isSupported: boolean;
-    var animate: typeof import("./transition").animate;
+declare class Xref {
+    private options;
+    private tailwindStyleElement;
+    constructor(options?: XrefOptions);
+    private init;
+    private removeInlineStylesFromRoot;
+    private initTailwindStyle;
+    private interceptClicks;
+    private shouldIntercept;
+    private handlePopState;
+    private navigate;
+    private fetchPage;
+    private updatePage;
+    private updateHead;
+    private updateBody;
+    private performTransition;
+    private applyTransition;
+    private camelToKebab;
 }
+declare function xref(options?: XrefOptions): Xref;
 export default xref;
