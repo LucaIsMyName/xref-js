@@ -1,7 +1,7 @@
 class Xref {
     constructor(options = {}) {
         this.tailwindStyleElement = null;
-        this.options = options;
+        this.options = Object.assign({ updateHead: true }, options);
         this.init();
     }
     init() {
@@ -77,25 +77,40 @@ class Xref {
     updateHead(newDoc) {
         const oldHead = document.head;
         const newHead = newDoc.head;
+        // Always update the title
+        document.title = newDoc.title;
+        // If updateHead is false, don't update anything else in the head
+        if (this.options.updateHead === false) {
+            return;
+        }
         // Update Tailwind styles
         const newTailwindStyle = newDoc.querySelector("style[data-tailwind]");
         if (newTailwindStyle && this.tailwindStyleElement) {
             this.tailwindStyleElement.textContent = newTailwindStyle.textContent;
         }
+        // update all scripts!
+        const allScripts = Array.from(document.querySelectorAll("script"));
+        const newScripts = Array.from(newDoc.querySelectorAll("script"));
+        allScripts.forEach((script) => {
+            script.remove();
+        });
+        newScripts.forEach((script) => {
+            document.body.appendChild(script.cloneNode(true));
+        });
         // Remove old elements except Tailwind style
         Array.from(oldHead.children).forEach((child) => {
-            if (child !== this.tailwindStyleElement) {
+            if (child !== this.tailwindStyleElement && child.tagName !== 'TITLE') {
                 child.remove();
             }
         });
         // Add new elements
         Array.from(newHead.children).forEach((child) => {
             if (child.tagName !== "STYLE" || !child.getAttribute("data-tailwind")) {
-                oldHead.appendChild(child.cloneNode(true));
+                if (child.tagName !== 'TITLE') {
+                    oldHead.appendChild(child.cloneNode(true));
+                }
             }
         });
-        // Update title
-        document.title = newDoc.title;
     }
     updateBody(newDoc) {
         const oldBody = document.body;

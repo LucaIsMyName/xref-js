@@ -1,4 +1,5 @@
 interface XrefOptions {
+  updateHead?: boolean;
   swapHtml?: string;
   transition?: TransitionOptions;
 }
@@ -22,7 +23,10 @@ class Xref {
   private tailwindStyleElement: HTMLStyleElement | null = null;
 
   constructor(options: XrefOptions = {}) {
-    this.options = options;
+    this.options = {
+      updateHead: true,  // Default value
+      ...options
+    };
     this.init();
   }
 
@@ -78,7 +82,7 @@ class Xref {
     });
   }
 
-  private async navigate(url: string, pushState: boolean = true) {
+  public async navigate(url: string, pushState: boolean = true) {
     try {
       const content = await this.fetchPage(url);
       if (content) {
@@ -91,7 +95,6 @@ class Xref {
       console.error("Navigation failed:", error);
     }
   }
-
   private async fetchPage(url: string): Promise<string> {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -110,15 +113,37 @@ class Xref {
     const oldHead = document.head;
     const newHead = newDoc.head;
 
+    // Always update the title
+    document.title = newDoc.title;
+
+    // If updateHead is false, don't update anything else in the head
+    if (this.options.updateHead === false) {
+      return;
+    }
+
     // Update Tailwind styles
     const newTailwindStyle = newDoc.querySelector("style[data-tailwind]");
     if (newTailwindStyle && this.tailwindStyleElement) {
       this.tailwindStyleElement.textContent = newTailwindStyle.textContent;
     }
 
+    // update all scripts!
+
+    const allScripts = Array.from(document.querySelectorAll("script"));
+    const newScripts = Array.from(newDoc.querySelectorAll("script"));
+
+    allScripts.forEach((script) => {
+      script.remove();
+    });
+
+    newScripts.forEach((script) => {
+      document.body.appendChild(script.cloneNode(true));
+    });
+
+
     // Remove old elements except Tailwind style
     Array.from(oldHead.children).forEach((child) => {
-      if (child !== this.tailwindStyleElement) {
+      if (child !== this.tailwindStyleElement && child.tagName !== 'TITLE') {
         child.remove();
       }
     });
@@ -126,12 +151,11 @@ class Xref {
     // Add new elements
     Array.from(newHead.children).forEach((child) => {
       if (child.tagName !== "STYLE" || !child.getAttribute("data-tailwind")) {
-        oldHead.appendChild(child.cloneNode(true));
+        if (child.tagName !== 'TITLE') {
+          oldHead.appendChild(child.cloneNode(true));
+        }
       }
     });
-
-    // Update title
-    document.title = newDoc.title;
   }
 
   private updateBody(newDoc: Document) {

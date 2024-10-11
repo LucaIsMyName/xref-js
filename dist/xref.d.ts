@@ -1,4 +1,5 @@
 interface XrefOptions {
+    updateHead?: boolean;
     swapHtml?: string;
     transition?: TransitionOptions;
 }
@@ -24,7 +25,7 @@ declare class Xref {
     private interceptClicks;
     private shouldIntercept;
     private handlePopState;
-    private navigate;
+    navigate(url: string, pushState?: boolean): Promise<void>;
     private fetchPage;
     private updatePage;
     private updateHead;
