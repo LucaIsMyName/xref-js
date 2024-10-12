@@ -20,23 +20,66 @@ interface TransitionState {
 
 class Xref {
   private options: XrefOptions;
-  private tailwindStyleElement: HTMLStyleElement | null = null;
+  private styleElement: HTMLStyleElement;
+  private transitionCounter: number = 0;
 
   constructor(options: XrefOptions = {}) {
     this.options = {
-      updateHead: true,  // Default value
-      ...options
+      updateHead: true,
+      ...options,
     };
+    this.styleElement = document.createElement("style");
+    this.styleElement.setAttribute("data-xref", "true");
+    document.head.appendChild(this.styleElement);
     this.init();
   }
 
   private init() {
+    console.log("started -> init() Method");
+
     this.interceptClicks();
     this.handlePopState();
-    this.initTailwindStyle();
+  }
+
+  private createKeyframes(transitionState: TransitionState, direction: "in" | "out"): string {
+    const { from, to } = transitionState;
+    const keyframeName = `xref-${direction}-${++this.transitionCounter}`;
+
+    let keyframeCSS = `@keyframes ${keyframeName} {
+      from {
+        ${Object.entries(from || {})
+          .map(([key, value]) => `${this.camelToKebab(key)}: ${value};`)
+          .join(" ")}
+      }
+      to {
+        ${Object.entries(to || {})
+          .map(([key, value]) => `${this.camelToKebab(key)}: ${value};`)
+          .join(" ")}
+      }
+    }`;
+
+    console.log(`Creating keyframe: ${keyframeName}`);
+    console.log(`Keyframe CSS: ${keyframeCSS}`);
+
+    // Append the keyframe to the style element's content
+    this.styleElement.textContent += keyframeCSS;
+    console.log(`Keyframe ${keyframeName} appended to <style> element`);
+    console.log(`Current <style> content: ${this.styleElement.textContent}`);
+
+    return keyframeName;
+  }
+
+  private removeKeyframes(keyframeName: string) {
+    console.log(`Removing keyframe: ${keyframeName}`);
+    const keyframeRegex = new RegExp(`@keyframes\\s+${keyframeName}\\s*{[^}]*}`, "gs");
+    this.styleElement.textContent = this.styleElement.textContent.replace(keyframeRegex, "");
+    console.log(`Keyframe ${keyframeName} removed`);
+    console.log(`Current <style> content after removal: ${this.styleElement.textContent}`);
   }
 
   private removeInlineStylesFromRoot() {
+    console.log("started -> removeInlineStylesFromRoot() Method");
+
     /**
      * remove the transitioned nline styles from the swapHtml element
      */
@@ -47,19 +90,12 @@ class Xref {
       return;
     }
 
-    rootElement.removeAttribute("style");
-  }
-
-  private initTailwindStyle() {
-    this.tailwindStyleElement = document.querySelector("style[data-tailwind]");
-    if (!this.tailwindStyleElement) {
-      this.tailwindStyleElement = document.createElement("style");
-      this.tailwindStyleElement.setAttribute("data-tailwind", "true");
-      document.head.appendChild(this.tailwindStyleElement);
-    }
+    rootElement.setAttribute("style", '');
   }
 
   private interceptClicks() {
+    console.log("started -> interceptClicks() Method");
+
     document.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
       const anchor = target.closest("a");
@@ -71,18 +107,24 @@ class Xref {
   }
 
   private shouldIntercept(anchor: HTMLAnchorElement): boolean {
+    console.log("started -> shouldIntercept() Method");
+
     const isSameOrigin = anchor.origin === window.location.origin;
     const isNotHash = anchor.hash === "";
     return isSameOrigin && isNotHash;
   }
 
   private handlePopState() {
+    console.log("started -> handlePopState() Method");
+
     window.addEventListener("popstate", () => {
       this.navigate(window.location.href, false);
     });
   }
 
   public async navigate(url: string, pushState: boolean = true) {
+    console.log("started -> navigate() Method");
+
     try {
       const content = await this.fetchPage(url);
       if (content) {
@@ -96,12 +138,16 @@ class Xref {
     }
   }
   private async fetchPage(url: string): Promise<string> {
+    console.log("started -> fetchPage() Method");
+
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.text();
   }
 
   private updatePage(content: string) {
+    console.log("started -> updatePage() Method");
+
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(content, "text/html");
 
@@ -110,6 +156,8 @@ class Xref {
   }
 
   private updateHead(newDoc: Document) {
+    console.log("started -> updateHead() Method");
+
     const oldHead = document.head;
     const newHead = newDoc.head;
 
@@ -121,127 +169,134 @@ class Xref {
       return;
     }
 
-    // Update Tailwind styles
-    const newTailwindStyle = newDoc.querySelector("style[data-tailwind]");
-    if (newTailwindStyle && this.tailwindStyleElement) {
-      this.tailwindStyleElement.textContent = newTailwindStyle.textContent;
-    }
-
-    // update all scripts!
-
-    const allScripts = Array.from(document.querySelectorAll("script"));
-    const newScripts = Array.from(newDoc.querySelectorAll("script"));
-
-    allScripts.forEach((script) => {
-      script.remove();
-    });
-
-    newScripts.forEach((script) => {
-      document.body.appendChild(script.cloneNode(true));
-    });
-
-
-    // Remove old elements except Tailwind style
+    // Remove old elements except our style element and title
     Array.from(oldHead.children).forEach((child) => {
-      if (child !== this.tailwindStyleElement && child.tagName !== 'TITLE') {
+      if (child !== this.styleElement && child.tagName !== "TITLE") {
         child.remove();
       }
     });
 
     // Add new elements
     Array.from(newHead.children).forEach((child) => {
-      if (child.tagName !== "STYLE" || !child.getAttribute("data-tailwind")) {
-        if (child.tagName !== 'TITLE') {
-          oldHead.appendChild(child.cloneNode(true));
-        }
+      if (child.tagName !== "STYLE" && child.tagName !== "TITLE") {
+        oldHead.appendChild(child.cloneNode(true));
       }
     });
+
+    console.log("Head updated, xref style element preserved");
   }
 
   private updateBody(newDoc: Document) {
-    const oldBody = document.body;
-    const newBody = newDoc.body;
+    console.log("started -> updateBody() Method");
 
-    if (!newBody) {
-      console.error("New document does not contain a body tag");
+    const swapHtml = this.options.swapHtml || "body";
+    const oldElement = document.querySelector(swapHtml);
+    const newElement = newDoc.querySelector(swapHtml);
+
+    if (!oldElement) {
+      console.error(`Old document does not contain element: ${swapHtml}`);
       return;
     }
 
-    this.performTransition(oldBody, newBody);
+    if (!newElement) {
+      console.error(`New document does not contain element: ${swapHtml}`);
+      return;
+    }
+
+    // Type assertions
+    this.performTransition(oldElement as HTMLElement, newElement as HTMLElement);
+    /* this.removeInlineStylesFromRoot(); */
   }
 
   private performTransition(oldBody: HTMLElement, newBody: HTMLElement) {
+    console.log("Started performTransition");
     const transitionOptions = this.options.transition || {};
     const duration = transitionOptions.duration || 300;
     const delay = transitionOptions.delay || 0;
-    const easing = transitionOptions.easing || "ease";
+    const easing = transitionOptions.easing || "ease-in-out";
+    const timeline = transitionOptions.timeline || "sequential";
 
-    // Apply 'out' transition
-    this.applyTransition(oldBody, transitionOptions.out, duration, delay, easing, "out");
+    const outTransition = transitionOptions.out;
+    const inTransition = transitionOptions.in;
 
-    // Apply 'in' transition
-    setTimeout(
-      () => {
-        oldBody.innerHTML = newBody.innerHTML;
-        Array.from(newBody.attributes).forEach((attr) => {
-          if (attr.name !== "style") {
-            oldBody.setAttribute(attr.name, attr.value);
-          }
-        });
-        this.applyTransition(oldBody, transitionOptions.in, duration, 0, easing, "in");
-      },
-      transitionOptions.timeline === "sequential" ? duration + delay : delay
-    );
-  }
+    console.log("Transition options:", { duration, delay, easing, timeline });
+    console.log("Out transition:", outTransition);
+    console.log("In transition:", inTransition);
 
-  private applyTransition(element: HTMLElement, transitionState: TransitionState | undefined, duration: number, delay: number, easing: string, direction: "in" | "out") {
-    if (!transitionState) return;
-
-    const { from, to } = transitionState;
-    const transitionProperties: string[] = [];
-
-    let styles = "";
-
-    if (from) {
-      Object.entries(from).forEach(([key, value]) => {
-        const prop = this.camelToKebab(key);
-        styles += `${prop}: ${value}; `;
-        transitionProperties.push(prop);
-      });
+    if (outTransition) {
+      console.log("Applying out transition");
+      this.applyTransition(oldBody, outTransition, duration, delay, easing, "out");
     }
 
-    styles += `transition: ${transitionProperties.map((prop) => `${prop} ${duration}ms ${easing} ${delay}ms`).join(", ")};`;
-    element.setAttribute("style", styles);
+    const applyInTransition = () => {
+      console.log("Applying in transition");
+      // Remove the "out" animation
+      oldBody.style.removeProperty("animation");
 
-    if (to) {
-      requestAnimationFrame(() => {
-        let newStyles = "";
-        Object.entries(to).forEach(([key, value]) => {
-          const prop = this.camelToKebab(key);
-          newStyles += `${prop}: ${value}; `;
-        });
-        newStyles += `transition: ${transitionProperties.map((prop) => `${prop} ${duration}ms ${easing} ${delay}ms`).join(", ")};`;
-        element.setAttribute("style", newStyles);
+      oldBody.innerHTML = newBody.innerHTML;
+      Array.from(newBody.attributes).forEach((attr) => {
+        if (attr.name !== "style") {
+          oldBody.setAttribute(attr.name, attr.value);
+        }
       });
-    }
 
-    const cleanup = () => {
-      // Remove the entire style attribute
-      element.removeAttribute("style");
-      element.removeEventListener("transitionend", cleanup);
+      if (inTransition) {
+        this.applyTransition(oldBody, inTransition, duration, 0, easing, "in");
+      }
     };
 
-    element.addEventListener(
-      "transitionend",
-      () => {
-        cleanup;
-        document.querySelector(this.options.swapHtml || "body")?.removeAttribute("style");
-      },
-      { once: false }
-    );
+    if (timeline === "sequential") {
+      console.log(`Setting timeout for in transition: ${duration + delay}ms`);
+      setTimeout(applyInTransition, duration + delay);
+    } else {
+      console.log(`Setting timeout for in transition: ${delay}ms (parallel)`);
+      setTimeout(applyInTransition, delay);
+    }
   }
 
-  private camelToKebab(str: string): string {
+  public reverseTransition(transition: TransitionState): TransitionState {
+    return {
+      from: transition.to,
+      to: transition.from,
+    };
+  }
+
+  private applyTransition(element: HTMLElement, transitionState: TransitionState, duration: number, delay: number, easing: string, direction: "in" | "out") {
+    console.log(`Applying ${direction} transition`);
+    const keyframeName = this.createKeyframes(transitionState, direction);
+    const animationCSS = `${keyframeName} ${duration}ms ${easing} ${delay}ms forwards`;
+
+    // Ensure we're setting the animation property correctly
+    element.style.setProperty("animation", animationCSS);
+    console.log(`Applied ${direction} animation: ${animationCSS}`);
+    console.log(`Current element style:`, element.style.cssText);
+
+    // Force a reflow to ensure the animation is applied immediately
+    void element.offsetWidth;
+
+    const cleanup = () => {
+      console.log(`Animation end event fired for ${direction} transition`);
+      element.style.removeProperty("animation");
+
+      document.querySelector("style[data-xref]")?.innerHTML = "";
+
+      if (direction === "in") {
+        Object.entries(transitionState.to || {}).forEach(([key, value]) => {
+          element.style.setProperty(this.camelToKebab(key), value as string);
+        });
+      }
+      console.log(`Cleaned up ${direction} animation`);
+      console.log(`Current element style after cleanup:`, element.style.cssText);
+      element.removeEventListener("animationend", cleanup);
+    };
+
+    element.addEventListener("animationend", ()=>{
+      cleanup;
+      this.removeInlineStylesFromRoot();
+    }, { once: true });
+  }
+
+  public camelToKebab(str: string): string {
     return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
   }
 }
@@ -251,4 +306,3 @@ function xref(options: XrefOptions = {}): Xref {
 }
 
 export default xref;
-

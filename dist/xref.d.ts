@@ -17,11 +17,13 @@ interface TransitionState {
 }
 declare class Xref {
     private options;
-    private tailwindStyleElement;
+    private styleElement;
+    private transitionCounter;
     constructor(options?: XrefOptions);
     private init;
+    private createKeyframes;
+    private removeKeyframes;
     private removeInlineStylesFromRoot;
-    private initTailwindStyle;
     private interceptClicks;
     private shouldIntercept;
     private handlePopState;
@@ -31,8 +33,9 @@ declare class Xref {
     private updateHead;
     private updateBody;
     private performTransition;
+    reverseTransition(transition: TransitionState): TransitionState;
     private applyTransition;
-    private camelToKebab;
+    camelToKebab(str: string): string;
 }
 declare function xref(options?: XrefOptions): Xref;
 export default xref;
