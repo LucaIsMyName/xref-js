@@ -41,19 +41,21 @@ xref({
   swapHtml: 'body', // The element to swap during transitions
   transition: {
     duration: 300,
+    delay: 0,
     easing: 'ease-in-out',
-    timeline: 'sequential',
     in: {
       from: { opacity: 0, transform: 'translateY(20px)' },
-      to: { opacity: 1, transform: 'translateY(0)' }
     },
     out: {
-      from: { opacity: 1 },
       to: { opacity: 0 }
     }
   }
 });
 ```
+
+You can have seperate animations for 'in' and 'out' or set either one them, the missing one is assumed the provided played backwards!
+
+You can set 'from' and 'to' optionaly, it would make sense to only do 'from' in the 'in' objecte and do 'to' in the 'out' object
 
 3. Ensure your HTML links are relative or to the same domain:
 
@@ -62,11 +64,11 @@ xref({
 <a href="/contact">Contact</a>
 ```
 
-xref will automatically intercept clicks on these links and handle the page transitions.
+`xref` will automatically intercept clicks on these links and handle the page transitions.
 
 ## How It Works
 
-xref intercepts clicks on links within your site. Instead of allowing the browser to load a new page, it:
+`xref` intercepts clicks on links within your site. Instead of allowing the browser to load a new page, it:
 
 1. Fetches the new page content via AJAX
 2. Smoothly transitions out the current page content

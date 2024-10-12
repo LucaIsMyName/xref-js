@@ -207,7 +207,7 @@
             };
             if (timeline === "sequential") {
                 console.log(`Setting timeout for in transition: ${duration + delay}ms`);
-                setTimeout(applyInTransition, duration + delay);
+                setTimeout(applyInTransition, duration / 2 + delay);
             }
             else {
                 console.log(`Setting timeout for in transition: ${delay}ms (parallel)`);
