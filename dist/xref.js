@@ -7,6 +7,8 @@
     class Xref {
         constructor(options = {}) {
             this.transitionCounter = 0;
+            // private currentKeyframes: { in?: string; out?: string } = {};
+            this.currentKeyframeName = null;
             this.options = Object.assign({ updateHead: true }, options);
             this.styleElement = document.createElement("style");
             this.styleElement.setAttribute("data-xref", "true");
@@ -35,18 +37,30 @@
     }`;
             console.log(`Creating keyframe: ${keyframeName}`);
             console.log(`Keyframe CSS: ${keyframeCSS}`);
-            // Append the keyframe to the style element's content
-            this.styleElement.textContent += keyframeCSS;
+            // Remove the previous keyframe if it exists
+            if (this.currentKeyframeName) {
+                this.removeKeyframes(this.currentKeyframeName);
+            }
+            // Append the new keyframe to the style element's content
+            this.styleElement.textContent = keyframeCSS;
+            this.currentKeyframeName = keyframeName;
             console.log(`Keyframe ${keyframeName} appended to <style> element`);
             console.log(`Current <style> content: ${this.styleElement.textContent}`);
             return keyframeName;
         }
         removeKeyframes(keyframeName) {
             console.log(`Removing keyframe: ${keyframeName}`);
-            const keyframeRegex = new RegExp(`@keyframes\\s+${keyframeName}\\s*{[^}]*}`, "gs");
-            this.styleElement.textContent = this.styleElement.textContent.replace(keyframeRegex, "");
+            this.styleElement.textContent = '';
             console.log(`Keyframe ${keyframeName} removed`);
             console.log(`Current <style> content after removal: ${this.styleElement.textContent}`);
+            this.currentKeyframeName = null;
+        }
+        removeUnusedKeyframes() {
+            // remove all keyframes inside <style data-xref>
+            console.log("started -> removeUnusedKeyframes() Method");
+            const keyframeRegex = /@keyframes\s+xref-(in|out)-\d+\s*{[^}]*}/gs;
+            this.styleElement.textContent = this.styleElement.textContent.replace(keyframeRegex, "");
+            console.log("Removed all keyframes");
         }
         removeInlineStylesFromRoot() {
             console.log("started -> removeInlineStylesFromRoot() Method");
@@ -160,8 +174,16 @@
             const delay = transitionOptions.delay || 0;
             const easing = transitionOptions.easing || "ease-in-out";
             const timeline = transitionOptions.timeline || "sequential";
-            const outTransition = transitionOptions.out;
-            const inTransition = transitionOptions.in;
+            let outTransition = transitionOptions.out;
+            let inTransition = transitionOptions.in;
+            // If no out transition is set, reverse the in transition
+            if (!outTransition && inTransition) {
+                outTransition = this.reverseTransition(inTransition);
+            }
+            // If no in transition is set, reverse the out transition
+            else if (!inTransition && outTransition) {
+                inTransition = this.reverseTransition(outTransition);
+            }
             console.log("Transition options:", { duration, delay, easing, timeline });
             console.log("Out transition:", outTransition);
             console.log("In transition:", inTransition);
@@ -172,7 +194,7 @@
             const applyInTransition = () => {
                 console.log("Applying in transition");
                 // Remove the "out" animation
-                oldBody.style.removeProperty("animation");
+                oldBody.style.removeProperty('animation');
                 oldBody.innerHTML = newBody.innerHTML;
                 Array.from(newBody.attributes).forEach((attr) => {
                     if (attr.name !== "style") {
@@ -203,14 +225,26 @@
             const keyframeName = this.createKeyframes(transitionState, direction);
             const animationCSS = `${keyframeName} ${duration}ms ${easing} ${delay}ms forwards`;
             // Ensure we're setting the animation property correctly
-            element.style.setProperty("animation", animationCSS);
+            element.style.setProperty('animation', animationCSS);
             console.log(`Applied ${direction} animation: ${animationCSS}`);
             console.log(`Current element style:`, element.style.cssText);
             // Force a reflow to ensure the animation is applied immediately
             void element.offsetWidth;
-            element.addEventListener("animationend", () => {
-                this.removeInlineStylesFromRoot();
-            }, { once: true });
+            const cleanup = () => {
+                console.log(`Animation end event fired for ${direction} transition`);
+                element.style.removeProperty('animation');
+                // Remove the keyframe immediately after the animation is complete
+                this.removeKeyframes(keyframeName);
+                if (direction === "in") {
+                    Object.entries(transitionState.to || {}).forEach(([key, value]) => {
+                        element.style.setProperty(this.camelToKebab(key), value);
+                    });
+                }
+                console.log(`Cleaned up ${direction} animation`);
+                console.log(`Current element style after cleanup:`, element.style.cssText);
+                element.removeEventListener("animationend", cleanup);
+            };
+            element.addEventListener("animationend", cleanup, { once: true });
         }
         camelToKebab(str) {
             return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();

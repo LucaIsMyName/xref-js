@@ -21,8 +21,10 @@ declare class Xref {
     private transitionCounter;
     constructor(options?: XrefOptions);
     private init;
+    private currentKeyframeName;
     private createKeyframes;
     private removeKeyframes;
+    private removeUnusedKeyframes;
     private removeInlineStylesFromRoot;
     private interceptClicks;
     private shouldIntercept;
@@ -33,7 +35,7 @@ declare class Xref {
     private updateHead;
     private updateBody;
     private performTransition;
-    reverseTransition(transition: TransitionState): TransitionState;
+    private reverseTransition;
     private applyTransition;
     camelToKebab(str: string): string;
 }
