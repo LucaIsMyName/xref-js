@@ -1,3 +1,4 @@
+import { prefetch } from "./prefetch";
 interface XrefOptions {
   updateHead?: boolean;
   swapHtml?: string;
@@ -250,7 +251,7 @@ class Xref {
 
     if (timeline === "sequential") {
       console.log(`Setting timeout for in transition: ${duration + delay}ms`);
-      setTimeout(applyInTransition, duration / 2 + delay);
+      setTimeout(applyInTransition, duration + delay);
     } else {
       console.log(`Setting timeout for in transition: ${delay}ms (parallel)`);
       setTimeout(applyInTransition, delay);
@@ -300,10 +301,13 @@ class Xref {
   public camelToKebab(str: string): string {
     return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
   }
+
+  public prefetch(options: { event: string; delay: number; active: boolean; callback: () => void | undefined }) {
+    prefetch(options);
+  }
 }
 
 function xref(options: XrefOptions = {}): Xref {
   return new Xref(options);
 }
-
 export default xref;

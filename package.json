@@ -1,6 +1,6 @@
 {
   "name": "xref-js",
-  "version": "0.5.0",
+  "version": "0.5.6",
   "description": "",
   "main": "dist/xref.js",
   "module": "dist/xref.esm.js",

@@ -36,6 +36,12 @@ declare class Xref {
     private reverseTransition;
     private applyTransition;
     camelToKebab(str: string): string;
+    prefetch(options: {
+        event: string;
+        delay: number;
+        active: boolean;
+        callback: () => void | undefined;
+    }): void;
 }
 declare function xref(options?: XrefOptions): Xref;
 

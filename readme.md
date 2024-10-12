@@ -93,4 +93,12 @@ Refer to the full documentation for detailed information on these features.
 
 `xref` works in all modern browsers that support the History API and CSS transitions. For older browsers, it will gracefully fall back to normal page loads.
 
+## Issues  & future Features
 
+- implement `options.swapHtml` -> eg. swap only the `<main>` tag
+- implement `options.prefetch` -> `options.prefetch.active`, `options.prefetch.event`, `options.delay` -> `src/prefetch.ts`
+- implement `options.timeline: 'sequential' || 'parallel'` (if possible, or depract)
+- implement `options.head.active:boolean` -> change from `options.updateHead`
+- implement `options.head.exclude:Array<string>` and `options.head.include:Array<string>` -> update or not update scripts or css when pages are swapped
+- implement `options.callback.onStart:Function` -> am optinal callback function when transition is started
+implement `options.callback.onFinish:Function` -> am optinal callback function when transition is finished

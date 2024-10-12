@@ -1,3 +1,27 @@
+/**
+ * This file is used to prefetch data for the application.
+ */
+function prefetch(options) {
+    // create a function a prefetches a html page on a given options.event + delay
+    // the set the <link prefetch> tag to the href of the page
+    // then call the callback function
+    // if the active is false, then return
+    if (!options.active)
+        return;
+    const link = document.createElement("link");
+    link.rel = "prefetch";
+    link.href;
+    link.addEventListener(options.event, () => {
+        setTimeout(() => {
+            var _a;
+            document.head.appendChild(link);
+            (_a = options.callback) === null || _a === void 0 ? void 0 : _a.call(options);
+        }, options.delay);
+    });
+    document.head.appendChild(link);
+    return link;
+}
+
 class Xref {
     constructor(options = {}) {
         this.transitionCounter = 0;
@@ -182,7 +206,7 @@ class Xref {
         };
         if (timeline === "sequential") {
             console.log(`Setting timeout for in transition: ${duration + delay}ms`);
-            setTimeout(applyInTransition, duration / 2 + delay);
+            setTimeout(applyInTransition, duration + delay);
         }
         else {
             console.log(`Setting timeout for in transition: ${delay}ms (parallel)`);
@@ -223,6 +247,9 @@ class Xref {
     }
     camelToKebab(str) {
         return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    }
+    prefetch(options) {
+        prefetch(options);
     }
 }
 function xref(options = {}) {
