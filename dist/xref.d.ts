@@ -24,8 +24,6 @@ declare class Xref {
     private currentKeyframeName;
     private createKeyframes;
     private removeKeyframes;
-    private removeUnusedKeyframes;
-    private removeInlineStylesFromRoot;
     private interceptClicks;
     private shouldIntercept;
     private handlePopState;
@@ -40,4 +38,5 @@ declare class Xref {
     camelToKebab(str: string): string;
 }
 declare function xref(options?: XrefOptions): Xref;
-export default xref;
+
+export { xref as default };

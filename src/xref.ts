@@ -44,7 +44,6 @@ class Xref {
   // private currentKeyframes: { in?: string; out?: string } = {};
   private currentKeyframeName: string | null = null;
 
-
   private createKeyframes(transitionState: TransitionState, direction: "in" | "out"): string {
     const { from, to } = transitionState;
     const keyframeName = `xref-${direction}-${++this.transitionCounter}`;
@@ -62,8 +61,8 @@ class Xref {
       }
     }`;
 
-    console.log(`Creating keyframe: ${keyframeName}`);
-    console.log(`Keyframe CSS: ${keyframeCSS}`);
+    console.log("Creating keyframe:" + keyframeName);
+    console.log("Keyframe CSS:" + keyframeCSS);
 
     // Remove the previous keyframe if it exists
     if (this.currentKeyframeName) {
@@ -74,43 +73,18 @@ class Xref {
     this.styleElement.textContent = keyframeCSS;
     this.currentKeyframeName = keyframeName;
 
-    console.log(`Keyframe ${keyframeName} appended to <style> element`);
-    console.log(`Current <style> content: ${this.styleElement.textContent}`);
+    console.log("Keyframe " + keyframeName + "appended to <style> element");
+    console.log("Current <style> content: " + this.styleElement.textContent);
 
     return keyframeName;
   }
 
-
   private removeKeyframes(keyframeName: string) {
-    console.log(`Removing keyframe: ${keyframeName}`);
-    this.styleElement.textContent = '';
-    console.log(`Keyframe ${keyframeName} removed`);
-    console.log(`Current <style> content after removal: ${this.styleElement.textContent}`);
+    console.log("Removing keyframe: " + keyframeName);
+    this.styleElement.textContent = "";
+    console.log("Keyframe" + keyframeName + "removed");
+    console.log("Current <style> content after removal:" + this.styleElement.textContent);
     this.currentKeyframeName = null;
-  }
-
-  private removeUnusedKeyframes() {
-    // remove all keyframes inside <style data-xref>
-    console.log("started -> removeUnusedKeyframes() Method");
-
-    const keyframeRegex = /@keyframes\s+xref-(in|out)-\d+\s*{[^}]*}/gs;
-    this.styleElement.textContent = this.styleElement.textContent.replace(keyframeRegex, "");
-    console.log("Removed all keyframes");
-  }
-  private removeInlineStylesFromRoot() {
-    console.log("started -> removeInlineStylesFromRoot() Method");
-
-    /**
-     * remove the transitioned nline styles from the swapHtml element
-     */
-
-    const swapHtml = this.options.swapHtml || "body";
-    const rootElement = document.querySelector(swapHtml);
-    if (!rootElement) {
-      return;
-    }
-
-    rootElement.setAttribute("style", '');
   }
 
   private interceptClicks() {
@@ -260,8 +234,8 @@ class Xref {
     const applyInTransition = () => {
       console.log("Applying in transition");
       // Remove the "out" animation
-      oldBody.style.removeProperty('animation');
-      
+      oldBody.style.removeProperty("animation");
+
       oldBody.innerHTML = newBody.innerHTML;
       Array.from(newBody.attributes).forEach((attr) => {
         if (attr.name !== "style") {
@@ -283,7 +257,6 @@ class Xref {
     }
   }
 
-
   private reverseTransition(transition: TransitionState): TransitionState {
     return {
       from: transition.to,
@@ -297,7 +270,7 @@ class Xref {
     const animationCSS = `${keyframeName} ${duration}ms ${easing} ${delay}ms forwards`;
 
     // Ensure we're setting the animation property correctly
-    element.style.setProperty('animation', animationCSS);
+    element.style.setProperty("animation", animationCSS);
     console.log(`Applied ${direction} animation: ${animationCSS}`);
     console.log(`Current element style:`, element.style.cssText);
 
@@ -306,7 +279,7 @@ class Xref {
 
     const cleanup = () => {
       console.log(`Animation end event fired for ${direction} transition`);
-      element.style.removeProperty('animation');
+      element.style.removeProperty("animation");
 
       // Remove the keyframe immediately after the animation is complete
       this.removeKeyframes(keyframeName);
