@@ -1,26 +1,84 @@
-/**
- * This file is used to prefetch data for the application.
- */
+import { XrefOptions } from "./xref";
 
-export function prefetch(options: { event: string; delay: number; active: boolean; callback: () => void | undefined }) {
-  // create a function a prefetches a html page on a given options.event + delay
-  // the set the <link prefetch> tag to the href of the page
-  // then call the callback function
-  // if the active is false, then return
-  if (!options.active) return;
+interface PrefetchOptions {
+  event?: string;
+  delay?: number;
+  selector?: string;
+  active?: boolean;
+}
 
-  const link = document.createElement("link");
-  link.rel = "prefetch";
-  link.href;
-  link.addEventListener(options.event, () => {
-    setTimeout(() => {
-      
-      document.head.appendChild(link);
-      options.callback?.();
-    }, options.delay);
-  });
+export class Prefetcher {
+  private cache: Map<string, string> = new Map();
+  private options: PrefetchOptions;
+  private xrefOptions: XrefOptions;
 
-  document.head.appendChild(link);
+  /**
+   *
+   * @description Initializes the prefetcher
+   * with the given options.
+   */
+  constructor(options: PrefetchOptions, xrefOptions: XrefOptions) {
+    this.options = options;
+    this.xrefOptions = xrefOptions;
+    this.init();
+  }
 
-  return link;
+  /**
+   * @description Initializes the prefetcher by
+   * adding an event listener to the document.
+   */
+  private init() {
+    if (!this.options.active) return;
+    document.addEventListener(this.options.event || "mouseover", this.handleEvent.bind(this));
+  }
+
+  /**
+   *
+   * @description Handles the event by checking if the target
+   * is an anchor element and if it should be prefetched.
+   */
+  private handleEvent(event: Event) {
+    const target = event.target as HTMLElement;
+    const link = target.closest(this.options.selector || "a") as HTMLAnchorElement | null;
+
+    if (link && this.shouldPrefetch(link)) {
+      setTimeout(() => this.prefetch(link.href), this.options.delay || 100);
+    }
+  }
+
+  /**
+   *
+   * @description Checks if the link should be prefetched.
+   */
+  private shouldPrefetch(link: HTMLAnchorElement): boolean {
+    return !!(link.href && link.href.startsWith(window.location.origin) && link.href !== window.location.href && !this.cache.has(link.href));
+  }
+
+  /**
+   *
+   * @description Fetches the content of the given URL
+   * and stores it in the cache.
+   */
+  private async prefetch(url: string) {
+    try {
+      const response = await fetch(url);
+      const text = await response.text();
+      this.cache.set(url, text);
+      this.xrefOptions.debug ? console.log(`Prefetched: ${url}`) : null;
+    } catch (error) {
+      this.xrefOptions.debug ? console.error("Failed to prefetch:" + url, error) : null;
+    }
+  }
+
+  /**
+   *
+   * @description Gets the content of the given URL
+   */
+  public getContent(url: string): string | null {
+    return this.cache.get(url) || null;
+  }
+}
+
+export function initPrefetcher(options: PrefetchOptions, xrefOptions: XrefOptions): Prefetcher {
+  return new Prefetcher(options, xrefOptions);
 }

@@ -1,8 +1,8 @@
-# `xref()`
-
-*This package is a Experimental. API is subject to change.*
+# `xref({})`
 
 `xref` is a lightweight JavaScript library that transforms multi-page applications (MPAs) into smooth, single-page-like experiences. It leverages the power of AJAX and CSS transitions to create seamless page transitions without the complexity of a full single-page application (SPA) framework.
+
+*This package is a Experimental. API is subject to change.*
 
 ## Features
 
@@ -23,23 +23,23 @@ yarn add xref-js
 ```
 
 ```html
-<script src="https://unpkg.com/xref-js@latest/dist/xref.min.js"></script>
+<script src="https://unpkg.com/xref-js@latest/dist/xref.min.js" defer></script>
 ```
 
 ## Basic Usage
 
-1. Import
+### 1. Import
 
 ```js
 import xref from 'xref-js';
 ```
 
-2. Initialize xref with your desired options:
+### 2. Initialize xref with your desired options:
 
 ```js
 xref({
-  swapHtml: 'body', // The element to swap during transitions
   transition: {
+    swapHtml: 'main',
     duration: 300,
     delay: 0,
     easing: 'ease-in-out',
@@ -47,7 +47,30 @@ xref({
       from: { opacity: 0, transform: 'translateY(20px)' },
     },
     out: {
+      from: { opacity:0.9 }
       to: { opacity: 0 }
+    },
+    callback: {
+      // callback when the <a> tag is clicked
+      onEnter: () => {
+        console.log('onEnter() function executed')
+      },
+      // callback when the animation is starting
+      onStart: () => {
+        console.log('onStart() function executed')
+      },
+      // callback when the animation is paused
+      onPause: () => {
+        console.log('onPause() function executed')
+      },
+      // callback when the animation is played
+      onPlay: () => {
+        console.log('onPlay() function executed')
+      },
+      // callback when the animation is finished
+      onFinish: () => {
+        console.log('onFinish() function executed')
+      },
     }
   }
 });
@@ -57,7 +80,7 @@ You can have seperate animations for 'in' and 'out' or set either one them, the 
 
 You can set 'from' and 'to' optionaly, it would make sense to only do 'from' in the 'in' objecte and do 'to' in the 'out' object
 
-3. Ensure your HTML links are relative or to the same domain:
+### 3. Ensure your HTML links are relative or to the same domain:
 
 ```html
 <a href="/about">About</a>
@@ -89,16 +112,80 @@ xref offers several advanced features and customization options:
 
 Refer to the full documentation for detailed information on these features.
 
+## Types
+
+```typescript
+
+
+interface XrefOptions: {
+  swapHtml?: string,
+  transition?: {
+    duration?: number,
+    delay?: number,
+    easing?: string,
+    out?: {
+      from?: Record<string?, string | number | boolean>,
+      to?: Record<string?, string | number | boolean>,
+    },
+    in?: {
+      from?: Record<string?, string | number | boolean>,
+      to?: Record<string?, string | number | boolean>,
+    },
+    callback?: {
+      onStart?: Function,
+      onPlay?: Function,
+      onPause?: Function,
+      onFinish?: Function
+    },
+    state?: {
+      started?: boolean,
+      playing?: boolean,
+      paused?: boolean,
+      finished?: boolean,
+    }
+  },
+  prefetch?: {
+    active?: boolean,
+    event?: string,
+    delay?: number
+  },
+};
+
+/**********************
+ ** Work in Progress **
+ **********************/
+
+interface XrefAnimateOptions: {
+  element?: string,
+  transition?: {
+    duration?: number,
+    delay?: number,
+    easing?: string,
+    in?: {
+      from?: Record<string?, string | number | boolean>,
+      to?: Record<string?, string | number | boolean>,
+    },
+    out?: {
+      from?: Record<string?, string | number | boolean>,
+      to?: Record<string?, string | number | boolean>,
+    },
+    callback?: {
+      onEnter?: Function,
+      onStart?: Function,
+      onPause?: Function,
+      onPlay?: Function,
+      onFinish?: Function
+    }
+  }
+}
+```
+
 ## Browser Support
 
 `xref` works in all modern browsers that support the History API and CSS transitions. For older browsers, it will gracefully fall back to normal page loads.
 
 ## Issues  & future Features
 
-- implement `options.swapHtml` -> eg. swap only the `<main>` tag
-- implement `options.prefetch` -> `options.prefetch.active`, `options.prefetch.event`, `options.delay` -> `src/prefetch.ts`
 - implement `options.timeline: 'sequential' || 'parallel'` (if possible, or depract)
 - implement `options.head.active:boolean` -> change from `options.updateHead`
 - implement `options.head.exclude:Array<string>` and `options.head.include:Array<string>` -> update or not update scripts or css when pages are swapped
-- implement `options.callback.onStart:Function` -> am optinal callback function when transition is started
-implement `options.callback.onFinish:Function` -> am optinal callback function when transition is finished
