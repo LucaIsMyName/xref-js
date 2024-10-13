@@ -158,8 +158,8 @@ interface XrefOptions: {
     retrigger?: {
       css?: boolean,
       js?: boolean,
-      include?: RegexPatter | string,
-      exclude?: RegexPatter | string,
+      include?: RegexPattern | string,
+      exclude?: RegexPattern | string,
     },
   }
 };
@@ -202,6 +202,7 @@ interface XrefAnimateOptions: {
 - implement `options.timeline: 'sequential' || 'parallel'` (if possible, or depract)
 - implement `options.head.active:boolean` -> change from `options.updateHead`
 - implement `options.head.exclude:Array<string>` and `options.head.include:Array<string>` -> update or not update scripts or css when pages are swapped
+- implement `option.prefetch.media:boolean`
 - implement `xref.animate`
 ```js
 xref.animate(
