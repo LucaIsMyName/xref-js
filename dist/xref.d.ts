@@ -18,7 +18,7 @@ export interface TransitionOptions {
     in?: TransitionState;
     out?: TransitionState;
     callback?: TransitionCallbacks;
-    state?: TransitionState;
+    state?: AnimationState;
     swapHtml?: string;
 }
 export interface TransitionState {

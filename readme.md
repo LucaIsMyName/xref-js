@@ -23,7 +23,7 @@ yarn add xref-js
 ```
 
 ```html
-<script src="https://unpkg.com/xref-js@latest/dist/xref.min.js" defer></script>
+<script src="https://unpkg.com/xref-js@latest/dist/xref.umd.js" defer></script>
 ```
 
 ## Basic Usage
@@ -79,7 +79,44 @@ xref({
 
 You can have seperate animations for 'in' and 'out' or set either one them, the missing one is assumed the provided played backwards!
 
-You can set 'from' and 'to' optionaly, it would make sense to only do 'from' in the 'in' objecte and do 'to' in the 'out' object
+You can set 'from' and 'to' optionaly, it would make sense to only do 'from' in the 'in' objecte and do 'to' in the 'out' object.
+
+#### `in` and `out` with `from` and `to`
+
+```js
+xref({
+  transition: {
+    // ...
+    in: {
+      from: {
+        /** 
+         * any css property that can 
+         * be put in keyframes. will be tranformde
+         * from camel case (`backgroundColor`) to kebab case (`background-color`)
+         *  */
+        opacity: 0,
+        backgroundColor: 'var(--fade-out-color)',
+        fiter: `blur(${Math.floor(Math.random() * 100)}px)`
+        scale: 1.5
+      },
+      to: {
+        // optional but not needed in the context of `in`
+      },
+    },
+    out: {
+      from: {
+        // optional but not needed in the context of `out`
+      },
+      to: {
+        opacity: 0,
+        scale: 0.7,
+        backgroundColor: 'var(--fade-out-color)'
+      }
+    }
+  }
+  // ...
+})
+```
 
 ### 3. Ensure your HTML links are relative or to the same domain:
 
