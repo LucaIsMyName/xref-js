@@ -38,6 +38,12 @@ import xref from 'xref-js';
 
 ```js
 xref({
+  prefetch: {
+    active: true,
+    delay: 100,
+    event: 'mouseover',
+    selector: 'button'
+  },
   transition: {
     swapHtml: 'main',
     duration: 300,
@@ -51,23 +57,18 @@ xref({
       to: { opacity: 0 }
     },
     callback: {
-      // callback when the <a> tag is clicked
       onEnter: () => {
         console.log('onEnter() function executed')
       },
-      // callback when the animation is starting
       onStart: () => {
         console.log('onStart() function executed')
       },
-      // callback when the animation is paused
       onPause: () => {
         console.log('onPause() function executed')
       },
-      // callback when the animation is played
       onPlay: () => {
         console.log('onPlay() function executed')
       },
-      // callback when the animation is finished
       onFinish: () => {
         console.log('onFinish() function executed')
       },
@@ -115,11 +116,9 @@ Refer to the full documentation for detailed information on these features.
 ## Types
 
 ```typescript
-
-
 interface XrefOptions: {
-  swapHtml?: string,
   transition?: {
+    swapHtml?: string,
     duration?: number,
     delay?: number,
     easing?: string,
@@ -132,6 +131,7 @@ interface XrefOptions: {
       to?: Record<string?, string | number | boolean>,
     },
     callback?: {
+      onEnter?: Function,
       onStart?: Function,
       onPlay?: Function,
       onPause?: Function,
@@ -149,6 +149,19 @@ interface XrefOptions: {
     event?: string,
     delay?: number
   },
+
+  /**********************
+   ** Work in Progress **
+  **********************/
+  head?: {
+    update?: boolean,
+    retrigger?: {
+      css?: boolean,
+      js?: boolean,
+      include?: RegexPatter | string,
+      exclude?: RegexPatter | string,
+    },
+  }
 };
 
 /**********************
@@ -189,3 +202,30 @@ interface XrefAnimateOptions: {
 - implement `options.timeline: 'sequential' || 'parallel'` (if possible, or depract)
 - implement `options.head.active:boolean` -> change from `options.updateHead`
 - implement `options.head.exclude:Array<string>` and `options.head.include:Array<string>` -> update or not update scripts or css when pages are swapped
+- implement `xref.animate`
+```js
+xref.animate(
+  {
+  in:{
+    from:{
+      // ...
+    },
+    to:{
+      // ...
+    }
+  },
+  out:{
+    from:{
+      // ...
+    },
+    to:{
+      // ...
+    }
+  },
+  elements: string,
+  duration: number,
+  delay: number,
+  easing: string,
+  }
+)
+```

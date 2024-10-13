@@ -29,17 +29,24 @@ export declare class Prefetcher {
     /**
      *
      * @description Checks if the link should be prefetched.
+     * It should be prefetched if it's an anchor element, it's
+     * not the current page, and it's not already in the cache.
      */
     private shouldPrefetch;
     /**
      *
      * @description Fetches the content of the given URL
-     * and stores it in the cache.
+     * and stores it in the cache. If the fetch fails, it logs
+     * an error to the console.
      */
     private prefetch;
     /**
      *
      * @description Gets the content of the given URL
+     * from the cache. If the content is not in the cache,
+     * it returns null. Otherwise, it returns the content.
+     * This method is used by the Xref instance to get the
+     * content of a URL before navigating to it.
      */
     getContent(url: string): string | null;
 }

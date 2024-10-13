@@ -39,9 +39,9 @@ export interface TransitionCallbacks {
     onFinish?: () => void;
 }
 /**
- * The main Xref class that handles navigation and transitions.
+ * The main Xref class that handles
+ * navigation and transitions.
  *
- * @param options - The Xref options.
  * @returns The Xref instance.
  *
  * @description This is the main class that handles navigation and transitions.

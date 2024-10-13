@@ -36,6 +36,8 @@ class Prefetcher {
     /**
      *
      * @description Checks if the link should be prefetched.
+     * It should be prefetched if it's an anchor element, it's
+     * not the current page, and it's not already in the cache.
      */
     shouldPrefetch(link) {
         return !!(link.href && link.href.startsWith(window.location.origin) && link.href !== window.location.href && !this.cache.has(link.href));
@@ -43,7 +45,8 @@ class Prefetcher {
     /**
      *
      * @description Fetches the content of the given URL
-     * and stores it in the cache.
+     * and stores it in the cache. If the fetch fails, it logs
+     * an error to the console.
      */
     async prefetch(url) {
         try {
@@ -59,6 +62,10 @@ class Prefetcher {
     /**
      *
      * @description Gets the content of the given URL
+     * from the cache. If the content is not in the cache,
+     * it returns null. Otherwise, it returns the content.
+     * This method is used by the Xref instance to get the
+     * content of a URL before navigating to it.
      */
     getContent(url) {
         return this.cache.get(url) || null;
@@ -69,9 +76,9 @@ function initPrefetcher(options, xrefOptions) {
 }
 
 /**
- * The main Xref class that handles navigation and transitions.
+ * The main Xref class that handles
+ * navigation and transitions.
  *
- * @param options - The Xref options.
  * @returns The Xref instance.
  *
  * @description This is the main class that handles navigation and transitions.
