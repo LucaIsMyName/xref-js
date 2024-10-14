@@ -1,16 +1,26 @@
-export interface XrefOptions {
+interface XrefOptions {
     debug?: boolean;
     updateHead?: boolean;
     transition?: TransitionOptions;
     prefetch?: PrefetchOptions;
+    head?: HeadOptions;
 }
-export interface PrefetchOptions {
+interface HeadOptions {
+    update?: boolean;
+    retrigger?: {
+        css?: boolean;
+        js?: boolean;
+        include?: string | RegExp;
+        exclude?: string | RegExp;
+    };
+}
+interface PrefetchOptions {
     active: boolean;
     delay: number;
     event: string;
     selector?: string;
 }
-export interface TransitionOptions {
+interface TransitionOptions {
     duration?: number;
     delay?: number;
     easing?: string;
@@ -20,18 +30,27 @@ export interface TransitionOptions {
     callback?: TransitionCallbacks;
     state?: AnimationState;
     swapHtml?: string;
+    partials?: PartialTransition[];
 }
-export interface TransitionState {
+interface PartialTransition {
+    element: string;
+    duration?: number;
+    delay?: number;
+    easing?: string;
+    in?: TransitionState;
+    out?: TransitionState;
+}
+interface TransitionState {
     from?: Record<string, string | number>;
     to?: Record<string, string | number>;
 }
-export interface AnimationState {
+interface AnimationState {
     started: boolean;
     playing: boolean;
     paused: boolean;
     finished: boolean;
 }
-export interface TransitionCallbacks {
+interface TransitionCallbacks {
     onEnter?: () => void;
     onStart?: () => void;
     onPlay?: () => void;
@@ -125,6 +144,7 @@ declare class Xref {
      * the title and other head elements based on the new content.
      */
     private updateHead;
+    private retriggerElement;
     /**
      * @description This method updates the body of the document
      * with the new body from the fetched content. It updates
@@ -140,6 +160,7 @@ declare class Xref {
      * delay, and easing.
      */
     private performTransition;
+    private getPartialsOutsideSwapHtml;
     /**
      * @description This method reverses the given transition
      * by swapping the from and to states. This is useful
@@ -179,11 +200,7 @@ declare class Xref {
      * and cleans up the animation
      * */
     finishTransition(): void;
-    /**
-     * @description This method converts
-     * camel case to kebab case
-     */
-    camelToKebab(str: string): string;
 }
 declare function xref(options?: XrefOptions): Xref;
-export default xref;
+
+export { type AnimationState, type HeadOptions, type PartialTransition, type PrefetchOptions, type TransitionCallbacks, type TransitionOptions, type TransitionState, type XrefOptions, xref as default };

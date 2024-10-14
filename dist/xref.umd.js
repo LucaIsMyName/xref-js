@@ -80,6 +80,105 @@
     }
 
     /**
+     *
+     * @description Convert camelCase to kebab-case
+     */
+    function camelToKebab(str) {
+        return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    }
+
+    async function handlePartials(partials, oldElement, newElement, options, direction) {
+        options.debug ? console.log(`Handling partials for ${direction} transition`) : null;
+        const partialPromises = partials.flatMap((partial) => {
+            const elements = oldElement.querySelectorAll(partial.element);
+            options.debug ? console.log(`Found ${elements.length} elements matching selector: ${partial.element}`) : null;
+            return Array.from(elements).map((element) => {
+                if (direction === "out" && partial.out) {
+                    return applyPartialTransition(element, partial.out, options, "out");
+                }
+                else if (direction === "in" && partial.in) {
+                    return applyPartialTransition(element, partial.in, options, "in");
+                }
+                return Promise.resolve();
+            });
+        });
+        await Promise.all(partialPromises);
+    }
+    function hidePartials(partials, element) {
+        partials.forEach((partial) => {
+            const elements = element.querySelectorAll(partial.element);
+            elements.forEach((el) => {
+                el.style.visibility = "hidden";
+            });
+        });
+    }
+    function showPartials(partials, element) {
+        partials.forEach((partial) => {
+            const elements = element.querySelectorAll(partial.element);
+            elements.forEach((el) => {
+                el.style.visibility = "visible";
+            });
+        });
+    }
+    async function applyPartialTransition(element, transitionState, options, direction) {
+        return new Promise((resolve) => {
+            const transitionOptions = options.transition;
+            const duration = transitionOptions.duration || 300;
+            const delay = transitionOptions.delay || 0;
+            const easing = transitionOptions.easing || "ease-in-out";
+            options.debug ? console.log(`Applying ${direction} transition to partial: ${element.tagName}`) : null;
+            const keyframeName = createKeyframes(transitionState, direction);
+            const animationCSS = `${keyframeName} ${duration / 2}ms ${easing} ${delay}ms forwards`;
+            element.style.setProperty("animation", animationCSS);
+            options.debug ? console.log(`Applied ${direction} animation to partial: ${animationCSS}`) : null;
+            options.debug ? console.log("Current partial element style:", element.style.cssText) : null;
+            // Force a reflow to ensure the animation is applied immediately
+            void element.offsetWidth;
+            const cleanup = () => {
+                options.debug ? console.log(`Animation end event fired for ${direction} transition on partial: ${element.tagName}`) : null;
+                element.style.removeProperty("animation");
+                // Remove the keyframe immediately after the animation is complete
+                removeKeyframes();
+                if (direction === "in") {
+                    Object.entries(transitionState.to || {}).forEach(([key, value]) => {
+                        element.style.setProperty(camelToKebab(key), value);
+                    });
+                }
+                options.debug ? console.log(`Cleaned up ${direction} animation for partial: ${element.tagName}`) : null;
+                options.debug ? console.log("Current partial element style after cleanup:", element.style.cssText) : null;
+                resolve();
+            };
+            element.addEventListener("animationend", cleanup, { once: true });
+        });
+    }
+    function createKeyframes(transitionState, direction) {
+        const { from, to } = transitionState;
+        const keyframeName = `xref-partial-${direction}-${Math.random().toString(36).substr(2, 9)}`;
+        const keyframeCSS = `@keyframes ${keyframeName} {
+    from {
+      ${Object.entries(from || {})
+        .map(([key, value]) => `${camelToKebab(key)}: ${value};`)
+        .join(" ")}
+    }
+    to {
+      ${Object.entries(to || {})
+        .map(([key, value]) => `${camelToKebab(key)}: ${value};`)
+        .join(" ")}
+    }
+  }`;
+        const styleElement = document.createElement("style");
+        styleElement.textContent = keyframeCSS;
+        document.head.appendChild(styleElement);
+        return keyframeName;
+    }
+    function removeKeyframes(keyframeName) {
+        const styleElement = document.querySelector(`style:not([data-xref="true"]):last-of-type`);
+        if (styleElement) {
+            styleElement.remove();
+        }
+    }
+
+    /**
      * The main Xref class that handles
      * navigation and transitions.
      *
@@ -134,12 +233,12 @@
             let keyframeCSS = `@keyframes ${keyframeName} {
       from {
         ${Object.entries(from || {})
-            .map(([key, value]) => `${this.camelToKebab(key)}: ${value};`)
+            .map(([key, value]) => `${camelToKebab(key)}: ${value};`)
             .join(" ")}
       }
       to {
         ${Object.entries(to || {})
-            .map(([key, value]) => `${this.camelToKebab(key)}: ${value};`)
+            .map(([key, value]) => `${camelToKebab(key)}: ${value};`)
             .join(" ")}
       }
     }`;
@@ -257,12 +356,12 @@
          * It updates the head and body of the document
          * based on the new content.
          */
-        updatePage(content) {
+        async updatePage(content) {
             this.options.debug ? console.log("started -> updatePage() Method") : null;
             const parser = new DOMParser();
             const newDoc = parser.parseFromString(content, "text/html");
+            await this.updateBody(newDoc);
             this.updateHead(newDoc);
-            this.updateBody(newDoc);
         }
         /**
          * @description This method updates the head of the document
@@ -270,13 +369,13 @@
          * the title and other head elements based on the new content.
          */
         updateHead(newDoc) {
+            var _a;
             this.options.debug ? console.log("started -> updateHead() Method") : null;
             const oldHead = document.head;
             const newHead = newDoc.head;
             // Always update the title
             document.title = newDoc.title;
-            // If updateHead is false, don't update anything else in the head
-            if (this.options.updateHead === false) {
+            if (((_a = this.options.head) === null || _a === void 0 ? void 0 : _a.update) === false) {
                 return;
             }
             // Remove old elements except our style element and title
@@ -288,10 +387,36 @@
             // Add new elements
             Array.from(newHead.children).forEach((child) => {
                 if (child.tagName !== "STYLE" && child.tagName !== "TITLE") {
-                    oldHead.appendChild(child.cloneNode(true));
+                    const newChild = child.cloneNode(true);
+                    oldHead.appendChild(newChild);
+                    this.retriggerElement(newChild);
                 }
             });
             this.options.debug ? console.log("Head updated, xref style element preserved") : null;
+        }
+        retriggerElement(element) {
+            var _a;
+            const { retrigger } = this.options.head || {};
+            if (!retrigger)
+                return;
+            const shouldRetrigger = (el) => {
+                if (retrigger.include && !el.matches(retrigger.include.toString()))
+                    return false;
+                if (retrigger.exclude && el.matches(retrigger.exclude.toString()))
+                    return false;
+                return true;
+            };
+            if (element.tagName === "LINK" && retrigger.css && shouldRetrigger(element)) {
+                const link = element;
+                link.href = link.href.split("?")[0] + "?t=" + new Date().getTime();
+            }
+            else if (element.tagName === "SCRIPT" && retrigger.js && shouldRetrigger(element)) {
+                const script = element;
+                const newScript = document.createElement("script");
+                Array.from(script.attributes).forEach((attr) => newScript.setAttribute(attr.name, attr.value));
+                newScript.textContent = script.textContent;
+                (_a = script.parentNode) === null || _a === void 0 ? void 0 : _a.replaceChild(newScript, script);
+            }
         }
         /**
          * @description This method updates the body of the document
@@ -299,21 +424,17 @@
          * the content of the swapHtml element based on the new content.
          * It also performs the transition between the old and new content.
          */
-        updateBody(newDoc) {
+        async updateBody(newDoc) {
             var _a;
             this.options.debug ? console.log("started -> updateBody() Method") : null;
             const swapHtml = ((_a = this.options.transition) === null || _a === void 0 ? void 0 : _a.swapHtml) || "body";
             const oldElement = document.querySelector(swapHtml);
             const newElement = newDoc.querySelector(swapHtml);
-            if (!oldElement) {
-                this.options.debug ? console.error(`Old document does not contain element: ${swapHtml}`) : null;
+            if (!oldElement || !newElement) {
+                this.options.debug ? console.error(`Element not found: ${swapHtml}`) : null;
                 return;
             }
-            if (!newElement) {
-                this.options.debug ? console.error(`New document does not contain element: ${swapHtml}`) : null;
-                return;
-            }
-            this.performTransition(oldElement, newElement);
+            await this.performTransition(oldElement, newElement);
             window.scrollTo(0, 0);
         }
         /**
@@ -323,51 +444,65 @@
          * It also handles the transition timeline, duration,
          * delay, and easing.
          */
-        performTransition(oldElement, newElement) {
+        async performTransition(oldElement, newElement) {
             this.options.debug ? console.log("Started performTransition") : null;
             const transitionOptions = this.options.transition || {};
             const duration = transitionOptions.duration || 300;
             const delay = transitionOptions.delay || 0;
             const easing = transitionOptions.easing || "ease-in-out";
-            const timeline = transitionOptions.timeline || "sequential";
             let outTransition = transitionOptions.out;
             let inTransition = transitionOptions.in;
-            // If no out transition is set, reverse the in transition
-            if (!outTransition && inTransition) {
-                outTransition = this.reverseTransition(inTransition);
-            }
-            // If no in transition is set, reverse the out transition
-            else if (!inTransition && outTransition) {
-                inTransition = this.reverseTransition(outTransition);
-            }
             this.setTransitionState("started", true);
             this.runCallback("onStart");
+            // Get partials outside swapHtml
+            const partialsOutsideSwapHtml = this.getPartialsOutsideSwapHtml();
+            // 1. Apply all out partial animations in parallel (outside swapHtml)
+            if (partialsOutsideSwapHtml.length > 0) {
+                this.options.debug ? console.log("Applying partial out transitions") : null;
+                await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "out");
+            }
+            // Hide partials before main out transition
+            if (partialsOutsideSwapHtml.length > 0) {
+                hidePartials(partialsOutsideSwapHtml, document.body);
+            }
+            // 2. Apply main out transition
             if (outTransition) {
-                this.options.debug ? console.log("Applying out transition") : null;
-                this.applyTransition(oldElement, outTransition, duration, delay, easing, "out");
+                this.options.debug ? console.log("Applying main out transition") : null;
+                await this.applyTransition(oldElement, outTransition, duration / 2, delay, easing, "out");
             }
-            const applyInTransition = () => {
-                this.options.debug ? console.log("Applying in transition") : null;
-                // Remove the "out" animation
-                oldElement.style.removeProperty("animation");
-                oldElement.innerHTML = newElement.innerHTML;
-                Array.from(newElement.attributes).forEach((attr) => {
-                    if (attr.name !== "style") {
-                        oldElement.setAttribute(attr.name, attr.value);
-                    }
-                });
-                if (inTransition) {
-                    this.applyTransition(oldElement, inTransition, duration, 0, easing, "in");
+            // Update content of swapHtml
+            oldElement.innerHTML = newElement.innerHTML;
+            Array.from(newElement.attributes).forEach((attr) => {
+                if (attr.name !== "style") {
+                    oldElement.setAttribute(attr.name, attr.value);
                 }
-            };
-            if (timeline === "sequential") {
-                this.options.debug ? console.log(`Setting timeout for in transition: ${duration + delay}ms`) : null;
-                setTimeout(applyInTransition, duration + delay);
+            });
+            // 3. Apply main in transition
+            if (inTransition) {
+                this.options.debug ? console.log("Applying main in transition") : null;
+                await this.applyTransition(oldElement, inTransition, duration / 2, 0, easing, "in");
             }
-            else {
-                this.options.debug ? console.log(`Setting timeout for in transition: ${delay}ms (parallel)`) : null;
-                setTimeout(applyInTransition, delay);
+            // Show partials before applying in transitions
+            if (partialsOutsideSwapHtml.length > 0) {
+                showPartials(partialsOutsideSwapHtml, document.body);
             }
+            // 4. Apply all in partial animations in parallel (outside swapHtml)
+            if (partialsOutsideSwapHtml.length > 0) {
+                this.options.debug ? console.log("Applying partial in transitions") : null;
+                await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "in");
+            }
+            this.setTransitionState("finished", true);
+            this.runCallback("onFinish");
+            window.scrollTo(0, 0);
+        }
+        getPartialsOutsideSwapHtml() {
+            var _a, _b;
+            const swapHtml = ((_a = this.options.transition) === null || _a === void 0 ? void 0 : _a.swapHtml) || "body";
+            const swapHtmlElement = document.querySelector(swapHtml);
+            return (((_b = this.options.transition) === null || _b === void 0 ? void 0 : _b.partials) || []).filter((partial) => {
+                const elements = document.querySelectorAll(partial.element);
+                return Array.from(elements).every((el) => !(swapHtmlElement === null || swapHtmlElement === void 0 ? void 0 : swapHtmlElement.contains(el)));
+            });
         }
         /**
          * @description This method reverses the given transition
@@ -386,55 +521,31 @@
          * and cleaning up after the animation is complete.
          */
         applyTransition(element, transitionState, duration, delay, easing, direction) {
-            const customEasings = {
-                easeInOut: "cubic-bezier(0.42, 0, 0.58, 1)",
-                easeIn: "cubic-bezier(0.42, 0, 1, 1)",
-                easeOut: "cubic-bezier(0, 0, 0.58, 1)",
-                linearDegressive: "cubic-bezier(0.25, 0.1, 0.25, 1)",
-                linearProgressive: "cubic-bezier(0.1, 0.25, 1, 0.25)",
-                easeInSine: "cubic-bezier(0.47, 0, 0.745, 0.715)",
-                easeOutSine: "cubic-bezier(0.39, 0.575, 0.565, 1)",
-                easeInOutSine: "cubic-bezier(0.445, 0.05, 0.55, 0.95)",
-                easeInQuad: "cubic-bezier(0.55, 0.085, 0.68, 0.53)",
-                easeOutQuad: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                easeInOutQuad: "cubic-bezier(0.455, 0.03, 0.515, 0.955)",
-                easeInCubic: "cubic-bezier(0.55, 0.055, 0.675, 0.19)",
-                easeOutCubic: "cubic-bezier(0.215, 0.61, 0.355, 1)",
-                easeInOutCubic: "cubic-bezier(0.645, 0.045, 0.355, 1)",
-            };
-            for (const [key, value] of Object.entries(customEasings)) {
-                if (easing === key) {
-                    easing = value;
-                }
-            }
-            this.options.debug ? console.log(`Applying ${direction} transition`) : null;
-            const keyframeName = this.createKeyframes(transitionState, direction);
-            const animationCSS = `${keyframeName} ${duration}ms ${easing} ${delay}ms forwards`;
-            // Ensure we're setting the animation property correctly
-            element.style.setProperty("animation", animationCSS);
-            this.options.debug ? console.log("Applied " + direction + " animation: " + animationCSS) : null;
-            this.options.debug ? console.log("Current element style:", element.style.cssText) : null;
-            // Force a reflow to ensure the animation is applied immediately
-            void element.offsetWidth;
-            this.setTransitionState("playing", true);
-            this.runCallback("onPlay");
-            const cleanup = () => {
-                this.options.debug ? console.log(`Animation end event fired for ${direction} transition`) : null;
-                element.style.removeProperty("animation");
-                // Remove the keyframe immediately after the animation is complete
-                this.removeKeyframes(keyframeName);
-                if (direction === "in") {
-                    Object.entries(transitionState.to || {}).forEach(([key, value]) => {
-                        element.style.setProperty(this.camelToKebab(key), value);
-                    });
-                }
-                this.options.debug ? console.log("Cleaned up " + direction + " animation") : null;
-                this.options.debug ? console.log("Current element style after cleanup:", element.style.cssText) : null;
-                element.removeEventListener("animationend", cleanup);
-                this.setTransitionState("finished", true);
-                this.runCallback("onFinish");
-            };
-            element.addEventListener("animationend", cleanup, { once: true });
+            return new Promise((resolve) => {
+                this.options.debug ? console.log(`Applying ${direction} transition`) : null;
+                const keyframeName = this.createKeyframes(transitionState, direction);
+                const animationCSS = `${keyframeName} ${duration}ms ${easing} ${delay}ms forwards`;
+                element.style.setProperty("animation", animationCSS);
+                this.options.debug ? console.log(`Applied ${direction} animation: ${animationCSS}`) : null;
+                this.options.debug ? console.log("Current element style:", element.style.cssText) : null;
+                // Force a reflow to ensure the animation is applied immediately
+                void element.offsetWidth;
+                const cleanup = () => {
+                    this.options.debug ? console.log(`Animation end event fired for ${direction} transition`) : null;
+                    element.style.removeProperty("animation");
+                    // Remove the keyframe immediately after the animation is complete
+                    this.removeKeyframes(keyframeName);
+                    if (direction === "in") {
+                        Object.entries(transitionState.to || {}).forEach(([key, value]) => {
+                            element.style.setProperty(camelToKebab(key), value);
+                        });
+                    }
+                    this.options.debug ? console.log(`Cleaned up ${direction} animation`) : null;
+                    this.options.debug ? console.log("Current element style after cleanup:", element.style.cssText) : null;
+                    resolve();
+                };
+                element.addEventListener("animationend", cleanup, { once: true });
+            });
         }
         /**
          * @description This method sets the transition state
@@ -475,7 +586,7 @@
                 this.runCallback("onPause");
                 // Pause transition
                 const element = document.querySelector(((_a = this.options.transition) === null || _a === void 0 ? void 0 : _a.swapHtml) || "body");
-                if (element) {
+                if (element instanceof HTMLElement) {
                     element.style.animationPlayState = "paused";
                 }
             }
@@ -490,9 +601,9 @@
                 this.setTransitionState("playing", true);
                 this.setTransitionState("paused", false);
                 this.runCallback("onPlay");
-                // play transition
+                // Play transition
                 const element = document.querySelector(((_a = this.options.transition) === null || _a === void 0 ? void 0 : _a.swapHtml) || "body");
-                if (element) {
+                if (element instanceof HTMLElement) {
                     element.style.animationPlayState = "running";
                 }
             }
@@ -506,13 +617,6 @@
             this.setTransitionState("paused", false);
             this.setTransitionState("finished", true);
             this.runCallback("onFinish");
-        }
-        /**
-         * @description This method converts
-         * camel case to kebab case
-         */
-        camelToKebab(str) {
-            return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
         }
     }
     function xref(options = {}) {

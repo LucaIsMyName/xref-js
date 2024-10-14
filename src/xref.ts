@@ -1,12 +1,24 @@
 import { Prefetcher, initPrefetcher } from "./prefetch";
+import { handlePartials, hidePartials, showPartials } from "./partials";
+import { camelToKebab } from "./utils";
 
 export interface XrefOptions {
   debug?: boolean;
   updateHead?: boolean;
   transition?: TransitionOptions;
   prefetch?: PrefetchOptions;
+  head?: HeadOptions;
 }
 
+export interface HeadOptions {
+  update?: boolean;
+  retrigger?: {
+    css?: boolean;
+    js?: boolean;
+    include?: string | RegExp;
+    exclude?: string | RegExp;
+  };
+}
 export interface PrefetchOptions {
   active: boolean;
   delay: number;
@@ -24,6 +36,16 @@ export interface TransitionOptions {
   callback?: TransitionCallbacks;
   state?: AnimationState;
   swapHtml?: string;
+  partials?: PartialTransition[];
+}
+
+export interface PartialTransition {
+  element: string;
+  duration?: number;
+  delay?: number;
+  easing?: string;
+  in?: TransitionState;
+  out?: TransitionState;
 }
 
 export interface TransitionState {
@@ -119,12 +141,12 @@ class Xref {
     let keyframeCSS = `@keyframes ${keyframeName} {
       from {
         ${Object.entries(from || {})
-          .map(([key, value]) => `${this.camelToKebab(key)}: ${value};`)
+          .map(([key, value]) => `${camelToKebab(key)}: ${value};`)
           .join(" ")}
       }
       to {
         ${Object.entries(to || {})
-          .map(([key, value]) => `${this.camelToKebab(key)}: ${value};`)
+          .map(([key, value]) => `${camelToKebab(key)}: ${value};`)
           .join(" ")}
       }
     }`;
@@ -262,14 +284,14 @@ class Xref {
    * It updates the head and body of the document
    * based on the new content.
    */
-  private updatePage(content: string) {
+  private async updatePage(content: string) {
     this.options.debug ? console.log("started -> updatePage() Method") : null;
 
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(content, "text/html");
 
+    await this.updateBody(newDoc);
     this.updateHead(newDoc);
-    this.updateBody(newDoc);
   }
 
   /**
@@ -286,8 +308,7 @@ class Xref {
     // Always update the title
     document.title = newDoc.title;
 
-    // If updateHead is false, don't update anything else in the head
-    if (this.options.updateHead === false) {
+    if (this.options.head?.update === false) {
       return;
     }
 
@@ -301,11 +322,35 @@ class Xref {
     // Add new elements
     Array.from(newHead.children).forEach((child) => {
       if (child.tagName !== "STYLE" && child.tagName !== "TITLE") {
-        oldHead.appendChild(child.cloneNode(true));
+        const newChild = child.cloneNode(true) as HTMLElement;
+        oldHead.appendChild(newChild);
+        this.retriggerElement(newChild);
       }
     });
 
     this.options.debug ? console.log("Head updated, xref style element preserved") : null;
+  }
+
+  private retriggerElement(element: HTMLElement) {
+    const { retrigger } = this.options.head || {};
+    if (!retrigger) return;
+
+    const shouldRetrigger = (el: HTMLElement): boolean => {
+      if (retrigger.include && !el.matches(retrigger.include.toString())) return false;
+      if (retrigger.exclude && el.matches(retrigger.exclude.toString())) return false;
+      return true;
+    };
+
+    if (element.tagName === "LINK" && retrigger.css && shouldRetrigger(element)) {
+      const link = element as HTMLLinkElement;
+      link.href = link.href.split("?")[0] + "?t=" + new Date().getTime();
+    } else if (element.tagName === "SCRIPT" && retrigger.js && shouldRetrigger(element)) {
+      const script = element as HTMLScriptElement;
+      const newScript = document.createElement("script");
+      Array.from(script.attributes).forEach((attr) => newScript.setAttribute(attr.name, attr.value));
+      newScript.textContent = script.textContent;
+      script.parentNode?.replaceChild(newScript, script);
+    }
   }
 
   /**
@@ -314,24 +359,19 @@ class Xref {
    * the content of the swapHtml element based on the new content.
    * It also performs the transition between the old and new content.
    */
-  private updateBody(newDoc: Document) {
+  private async updateBody(newDoc: Document) {
     this.options.debug ? console.log("started -> updateBody() Method") : null;
 
     const swapHtml = this.options.transition?.swapHtml || "body";
     const oldElement = document.querySelector(swapHtml);
     const newElement = newDoc.querySelector(swapHtml);
 
-    if (!oldElement) {
-      this.options.debug ? console.error(`Old document does not contain element: ${swapHtml}`) : null;
+    if (!oldElement || !newElement) {
+      this.options.debug ? console.error(`Element not found: ${swapHtml}`) : null;
       return;
     }
 
-    if (!newElement) {
-      this.options.debug ? console.error(`New document does not contain element: ${swapHtml}`) : null;
-      return;
-    }
-
-    this.performTransition(oldElement as HTMLElement, newElement as HTMLElement);
+    await this.performTransition(oldElement as HTMLElement, newElement as HTMLElement);
 
     window.scrollTo(0, 0);
   }
@@ -343,58 +383,78 @@ class Xref {
    * It also handles the transition timeline, duration,
    * delay, and easing.
    */
-  private performTransition(oldElement: HTMLElement, newElement: HTMLElement) {
+  private async performTransition(oldElement: HTMLElement, newElement: HTMLElement) {
     this.options.debug ? console.log("Started performTransition") : null;
     const transitionOptions = this.options.transition || {};
     const duration = transitionOptions.duration || 300;
     const delay = transitionOptions.delay || 0;
     const easing = transitionOptions.easing || "ease-in-out";
-    const timeline = transitionOptions.timeline || "sequential";
 
     let outTransition = transitionOptions.out;
     let inTransition = transitionOptions.in;
 
-    // If no out transition is set, reverse the in transition
-    if (!outTransition && inTransition) {
-      outTransition = this.reverseTransition(inTransition);
-    }
-    // If no in transition is set, reverse the out transition
-    else if (!inTransition && outTransition) {
-      inTransition = this.reverseTransition(outTransition);
-    }
-
     this.setTransitionState("started", true);
     this.runCallback("onStart");
 
+    // Get partials outside swapHtml
+    const partialsOutsideSwapHtml = this.getPartialsOutsideSwapHtml();
+
+    // 1. Apply all out partial animations in parallel (outside swapHtml)
+    if (partialsOutsideSwapHtml.length > 0) {
+      this.options.debug ? console.log("Applying partial out transitions") : null;
+      await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "out");
+    }
+
+    // Hide partials before main out transition
+    if (partialsOutsideSwapHtml.length > 0) {
+      hidePartials(partialsOutsideSwapHtml, document.body);
+    }
+
+    // 2. Apply main out transition
     if (outTransition) {
-      this.options.debug ? console.log("Applying out transition") : null;
-      this.applyTransition(oldElement, outTransition, duration, delay, easing, "out");
+      this.options.debug ? console.log("Applying main out transition") : null;
+      await this.applyTransition(oldElement, outTransition, duration / 2, delay, easing, "out");
     }
 
-    const applyInTransition = () => {
-      this.options.debug ? console.log("Applying in transition") : null;
-      // Remove the "out" animation
-      oldElement.style.removeProperty("animation");
-
-      oldElement.innerHTML = newElement.innerHTML;
-      Array.from(newElement.attributes).forEach((attr) => {
-        if (attr.name !== "style") {
-          oldElement.setAttribute(attr.name, attr.value);
-        }
-      });
-
-      if (inTransition) {
-        this.applyTransition(oldElement, inTransition, duration, 0, easing, "in");
+    // Update content of swapHtml
+    oldElement.innerHTML = newElement.innerHTML;
+    Array.from(newElement.attributes).forEach((attr) => {
+      if (attr.name !== "style") {
+        oldElement.setAttribute(attr.name, attr.value);
       }
-    };
+    });
 
-    if (timeline === "sequential") {
-      this.options.debug ? console.log(`Setting timeout for in transition: ${duration + delay}ms`) : null;
-      setTimeout(applyInTransition, duration + delay);
-    } else {
-      this.options.debug ? console.log(`Setting timeout for in transition: ${delay}ms (parallel)`) : null;
-      setTimeout(applyInTransition, delay);
+    // 3. Apply main in transition
+    if (inTransition) {
+      this.options.debug ? console.log("Applying main in transition") : null;
+      await this.applyTransition(oldElement, inTransition, duration / 2, 0, easing, "in");
     }
+
+    // Show partials before applying in transitions
+    if (partialsOutsideSwapHtml.length > 0) {
+      showPartials(partialsOutsideSwapHtml, document.body);
+    }
+
+    // 4. Apply all in partial animations in parallel (outside swapHtml)
+    if (partialsOutsideSwapHtml.length > 0) {
+      this.options.debug ? console.log("Applying partial in transitions") : null;
+      await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "in");
+    }
+
+    this.setTransitionState("finished", true);
+    this.runCallback("onFinish");
+
+    window.scrollTo(0, 0);
+  }
+
+  private getPartialsOutsideSwapHtml(): PartialTransition[] {
+    const swapHtml = this.options.transition?.swapHtml || "body";
+    const swapHtmlElement = document.querySelector(swapHtml);
+
+    return (this.options.transition?.partials || []).filter((partial) => {
+      const elements = document.querySelectorAll(partial.element);
+      return Array.from(elements).every((el) => !swapHtmlElement?.contains(el));
+    });
   }
 
   /**
@@ -414,66 +474,39 @@ class Xref {
    * by creating the keyframes, setting the animation properties,
    * and cleaning up after the animation is complete.
    */
-  private applyTransition(element: HTMLElement, transitionState: TransitionState, duration: number, delay: number, easing: string, direction: "in" | "out") {
-    const customEasings = {
-      easeInOut: "cubic-bezier(0.42, 0, 0.58, 1)",
-      easeIn: "cubic-bezier(0.42, 0, 1, 1)",
-      easeOut: "cubic-bezier(0, 0, 0.58, 1)",
-      linearDegressive: "cubic-bezier(0.25, 0.1, 0.25, 1)",
-      linearProgressive: "cubic-bezier(0.1, 0.25, 1, 0.25)",
-      easeInSine: "cubic-bezier(0.47, 0, 0.745, 0.715)",
-      easeOutSine: "cubic-bezier(0.39, 0.575, 0.565, 1)",
-      easeInOutSine: "cubic-bezier(0.445, 0.05, 0.55, 0.95)",
-      easeInQuad: "cubic-bezier(0.55, 0.085, 0.68, 0.53)",
-      easeOutQuad: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-      easeInOutQuad: "cubic-bezier(0.455, 0.03, 0.515, 0.955)",
-      easeInCubic: "cubic-bezier(0.55, 0.055, 0.675, 0.19)",
-      easeOutCubic: "cubic-bezier(0.215, 0.61, 0.355, 1)",
-      easeInOutCubic: "cubic-bezier(0.645, 0.045, 0.355, 1)",
-    };
+  private applyTransition(element: HTMLElement, transitionState: TransitionState, duration: number, delay: number, easing: string, direction: "in" | "out"): Promise<void> {
+    return new Promise((resolve) => {
+      this.options.debug ? console.log(`Applying ${direction} transition`) : null;
+      const keyframeName = this.createKeyframes(transitionState, direction);
+      const animationCSS = `${keyframeName} ${duration}ms ${easing} ${delay}ms forwards`;
 
-    for (const [key, value] of Object.entries(customEasings)) {
-      if (easing === key) {
-        easing = value;
-      }
-    }
+      element.style.setProperty("animation", animationCSS);
+      this.options.debug ? console.log(`Applied ${direction} animation: ${animationCSS}`) : null;
+      this.options.debug ? console.log("Current element style:", element.style.cssText) : null;
 
-    this.options.debug ? console.log(`Applying ${direction} transition`) : null;
-    const keyframeName = this.createKeyframes(transitionState, direction);
-    const animationCSS = `${keyframeName} ${duration}ms ${easing} ${delay}ms forwards`;
+      // Force a reflow to ensure the animation is applied immediately
+      void element.offsetWidth;
 
-    // Ensure we're setting the animation property correctly
-    element.style.setProperty("animation", animationCSS);
-    this.options.debug ? console.log("Applied " + direction + " animation: " + animationCSS) : null;
-    this.options.debug ? console.log("Current element style:", element.style.cssText) : null;
+      const cleanup = () => {
+        this.options.debug ? console.log(`Animation end event fired for ${direction} transition`) : null;
+        element.style.removeProperty("animation");
 
-    // Force a reflow to ensure the animation is applied immediately
-    void element.offsetWidth;
+        // Remove the keyframe immediately after the animation is complete
+        this.removeKeyframes(keyframeName);
 
-    this.setTransitionState("playing", true);
-    this.runCallback("onPlay");
+        if (direction === "in") {
+          Object.entries(transitionState.to || {}).forEach(([key, value]) => {
+            element.style.setProperty(camelToKebab(key), value as string);
+          });
+        }
+        this.options.debug ? console.log(`Cleaned up ${direction} animation`) : null;
+        this.options.debug ? console.log("Current element style after cleanup:", element.style.cssText) : null;
 
-    const cleanup = () => {
-      this.options.debug ? console.log(`Animation end event fired for ${direction} transition`) : null;
-      element.style.removeProperty("animation");
+        resolve();
+      };
 
-      // Remove the keyframe immediately after the animation is complete
-      this.removeKeyframes(keyframeName);
-
-      if (direction === "in") {
-        Object.entries(transitionState.to || {}).forEach(([key, value]) => {
-          element.style.setProperty(this.camelToKebab(key), value as string);
-        });
-      }
-      this.options.debug ? console.log("Cleaned up " + direction + " animation") : null;
-      this.options.debug ? console.log("Current element style after cleanup:", element.style.cssText) : null;
-      element.removeEventListener("animationend", cleanup);
-
-      this.setTransitionState("finished", true);
-      this.runCallback("onFinish");
-    };
-
-    element.addEventListener("animationend", cleanup, { once: true });
+      element.addEventListener("animationend", cleanup, { once: true });
+    });
   }
 
   /**
@@ -516,9 +549,8 @@ class Xref {
       this.runCallback("onPause");
 
       // Pause transition
-
       const element = document.querySelector(this.options.transition?.swapHtml || "body");
-      if (element) {
+      if (element instanceof HTMLElement) {
         element.style.animationPlayState = "paused";
       }
     }
@@ -533,10 +565,10 @@ class Xref {
       this.setTransitionState("playing", true);
       this.setTransitionState("paused", false);
       this.runCallback("onPlay");
-      // play transition
 
+      // Play transition
       const element = document.querySelector(this.options.transition?.swapHtml || "body");
-      if (element) {
+      if (element instanceof HTMLElement) {
         element.style.animationPlayState = "running";
       }
     }
@@ -557,9 +589,9 @@ class Xref {
    * @description This method converts
    * camel case to kebab case
    */
-  public camelToKebab(str: string): string {
-    return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
-  }
+  // public camelToKebab(str: string): string {
+  //   return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+  // }
 }
 
 function xref(options: XrefOptions = {}): Xref {

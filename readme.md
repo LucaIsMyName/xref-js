@@ -150,7 +150,7 @@ xref offers several advanced features and customization options:
 
 Refer to the full documentation for detailed information on these features.
 
-## Types
+## API & Types
 
 ```typescript
 interface XrefOptions: {
@@ -179,6 +179,41 @@ interface XrefOptions: {
       playing?: boolean,
       paused?: boolean,
       finished?: boolean,
+    },
+    /**********************
+    ** Work in Progress **
+    **********************/
+    partials?: [
+        {
+          element?: string,
+          duration?: number,
+          delay?: number,
+          easing?: string,
+          transition?: {
+            out?: {
+              from?: Record<string?, string | number | boolean>,
+              to?: Record<string?, string | number | boolean>,
+            },
+            in?: {
+              from?: Record<string?, string | number | boolean>,
+              to?: Record<string?, string | number | boolean>,
+            }
+          },
+          callback?: {
+            onEnter?: Function,
+            onStart?: Function,
+            onPause?: Function,
+            onPlay?: Function,
+            onFinish?: Function
+          },
+          state?: {
+            started?: boolean,
+            paused?: boolean,
+            playing?: boolean,
+            finished?: boolean,
+          }
+        }
+      ]
     }
   },
   prefetch?: {
@@ -200,34 +235,6 @@ interface XrefOptions: {
     },
   }
 };
-
-/**********************
- ** Work in Progress **
- **********************/
-
-interface XrefAnimateOptions: {
-  element?: string,
-  transition?: {
-    duration?: number,
-    delay?: number,
-    easing?: string,
-    in?: {
-      from?: Record<string?, string | number | boolean>,
-      to?: Record<string?, string | number | boolean>,
-    },
-    out?: {
-      from?: Record<string?, string | number | boolean>,
-      to?: Record<string?, string | number | boolean>,
-    },
-    callback?: {
-      onEnter?: Function,
-      onStart?: Function,
-      onPause?: Function,
-      onPlay?: Function,
-      onFinish?: Function
-    }
-  }
-}
 ```
 
 ## Browser Support
