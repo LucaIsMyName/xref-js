@@ -38,57 +38,121 @@ import xref from 'xref-js';
 
 ```js
 xref({
+  /**
+   * `prefetch` can fetch HTML Pages
+   * before clicking on them by 
+   * setting `prefetch.active` to
+   * `true`, `event:'mouseover'` &
+   * `delay:0` are default
+   */
   prefetch: {
     active: true,
-    delay: 100,
-    event: 'mouseover',
-    selector: 'button'
+    // delay: 0,
+    // event: 'mouseover',
   },
+  /**
+   * `transition` is the global 
+   * Object for transition out and
+   * in of pages. 
+  */
   transition: {
+    /**
+     * the DOM Element to swap to the new
+     * HTML content to (everything outside
+     * stays as on initial page load!)
+     */
     swapHtml: 'main',
-    duration: 300,
-    easing: 'ease-in-out',
+    /**
+     * duration of the main
+     * animation in and out!
+     * info: duration times of
+     * in and out are added.
+     * depeding on partial 
+     * transtion duration
+     * animation is:
+     * ________________
+     *   [t] of partial out
+     * + [t] of swapHtml out
+     * + [t] of swapHtml in
+     * + [t] of partial in
+     * ________________
+     * = total time of transition
+    */
+    duration: 100,
+    /**
+     * Easing function of the 
+     * main page transition
+    */
+    easing: 'ease',
+    /**
+     * the transition when the element
+     * is inserted in the page
+     */
     in: {
-      from: { opacity: 0, transform: 'translateY(20px)' },
+      /**
+       * translates to CSS Keyframes
+       * @keyframe xref-animation-in-[i] {
+       *    0%: {
+       *      opacity: 0
+       *    },
+       *    100% {
+       *      // if  'to' is set here would be something
+       *    }
+       * }
+      */
+      from: {
+        opacity: 0,
+        filter: 'blur(50px)'
+      },
     },
+    /**
+     * the transition when the element
+     * is removed from the page
+     */
     out: {
-      from: { opacity:0.9 }
-      to: { opacity: 0 }
+      /**
+       * translates to CSS Keyframes
+       * @keyframe xref-animation-in-[i] {
+       *    0%: {
+       *       // if  'from' is set here would be something
+       *    },
+       *    100% {
+       *      opacity: 0
+       *    }
+       * }
+      */
+      to: {
+        opacity: 0,
+        filter: 'blur(50px)'
+      }
     },
     callback: {
-      onEnter: () => {
-        console.log('onEnter() function executed')
-      },
-      onStart: () => {
-        console.log('onStart() function executed')
-      },
-      onPause: () => {
-        console.log('onPause() function executed')
-      },
-      onPlay: () => {
-        console.log('onPlay() function executed')
-      },
-      onFinish: () => {
-        console.log('onFinish() function executed')
-      },
-    },
+      onEnter: () => {},
+      onStart: () => {},
+      onPlay: () => {},
+      onPause: () => {},
+      onFinish: () => {}
+    }
+    /** `transition.partials` is an Array of HTMLElements that can be animated 
+     * out BEFORE the `transition.swapHtml` Element is animated out 
+     * and AFTER the the `transition.swapHtml` Element is animated in.
+     */
     partials: [
       {
-        element: 'head',
-        duration: 1000,
-        easing: 'ease',
+        element: 'header, footer, aside',
+        duration: 100,
+        easing: 'ease-in-out',
         in: {
           from: {
-            transform: 'trabnslate(-100px)'
-          }
+            opacity: 0,
+          },
         },
         out: {
           to: {
-            transform: 'trabnslate(-100px)'
+            opacity: 0,
           }
         }
       },
-      // declare further `partials` as object
     ]
   }
 });
@@ -97,43 +161,6 @@ xref({
 You can have seperate animations for 'in' and 'out' or set either one them, the missing one is assumed the provided played backwards!
 
 You can set 'from' and 'to' optionaly, it would make sense to only do 'from' in the 'in' objecte and do 'to' in the 'out' object.
-
-#### `in` and `out` with `from` and `to`
-
-```js
-xref({
-  transition: {
-    // ...
-    in: {
-      from: {
-        /** 
-         * any css property that can 
-         * be put in keyframes. will be tranformde
-         * from camel case (`backgroundColor`) to kebab case (`background-color`)
-         *  */
-        opacity: 0,
-        backgroundColor: 'var(--fade-out-color)',
-        fiter: `blur(${Math.floor(Math.random() * 100)}px)`
-        scale: 1.5
-      },
-      to: {
-        // optional but not needed in the context of `in`
-      },
-    },
-    out: {
-      from: {
-        // optional but not needed in the context of `out`
-      },
-      to: {
-        opacity: 0,
-        scale: 0.7,
-        backgroundColor: 'var(--fade-out-color)'
-      }
-    }
-  }
-  // ...
-})
-```
 
 ### 3. Ensure your HTML links are relative or to the same domain:
 
@@ -201,7 +228,7 @@ interface XrefOptions: {
     **********************/
     partials?: [
         {
-          element?: string,
+          element?: string, // any document.querySelectorAll(string) passable string
           duration?: number,
           easing?: string,
           transition?: {
@@ -214,19 +241,6 @@ interface XrefOptions: {
               to?: Record<string?, string | number | boolean>,
             }
           },
-          callback?: {
-            onEnter?: Function,
-            onStart?: Function,
-            onPause?: Function,
-            onPlay?: Function,
-            onFinish?: Function
-          },
-          state?: {
-            started?: boolean,
-            paused?: boolean,
-            playing?: boolean,
-            finished?: boolean,
-          }
         }
       ]
     }
@@ -237,9 +251,9 @@ interface XrefOptions: {
     delay?: number
   },
 
-  /**********************
-   ** Work in Progress **
-  **********************/
+  /*****************************
+   ** Work in Progress / Idea **
+  ******************************/
   head?: {
     update?: boolean,
     retrigger?: {
@@ -258,34 +272,7 @@ interface XrefOptions: {
 
 ## Issues  & future Features
 
-- implement `options.timeline: 'sequential' || 'parallel'` (if possible, or depract)
 - implement `options.head.active:boolean` -> change from `options.updateHead`
 - implement `options.head.exclude:Array<string>` and `options.head.include:Array<string>` -> update or not update scripts or css when pages are swapped
 - implement `option.prefetch.media:boolean`
-- implement `xref.animate`
-```js
-xref.animate(
-  {
-  in:{
-    from:{
-      // ...
-    },
-    to:{
-      // ...
-    }
-  },
-  out:{
-    from:{
-      // ...
-    },
-    to:{
-      // ...
-    }
-  },
-  elements: string,
-  duration: number,
-  delay: number,
-  easing: string,
-  }
-)
-```
+- change the way the partial css is set and removed to the `<head>` tag, by setting a `data-xref-partial="true"` and `data-xref-partial-id="{partialId}"`

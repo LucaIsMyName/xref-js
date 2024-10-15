@@ -90,13 +90,19 @@ async function handlePartials(partials, oldElement, newElement, options, directi
         options.debug ? console.log(`Found ${elements.length} elements matching selector: ${partial.element}`) : null;
         return Array.from(elements).map((element) => {
             const mergedOptions = mergeOptions(partial, options.transition, index);
-            if (direction === "out" && partial.out) {
-                return applyPartialTransition(element, partial.out, mergedOptions, "out");
+            let transitionState = direction === "out" ? partial.out : partial.in;
+            // If the transition for the current direction is not defined, reverse the other direction
+            if (!transitionState) {
+                const oppositeTransition = direction === "out" ? partial.in : partial.out;
+                if (oppositeTransition) {
+                    transitionState = reverseTransition(oppositeTransition);
+                }
             }
-            else if (direction === "in" && partial.in) {
-                // remove visibility:;hidden in inline styles
-                element.style.removeProperty("visibility");
-                return applyPartialTransition(element, partial.in, mergedOptions, "in");
+            if (transitionState) {
+                if (direction === "in") {
+                    element.style.removeProperty("visibility");
+                }
+                return applyPartialTransition(element, transitionState, mergedOptions, direction);
             }
             return Promise.resolve();
         });
@@ -107,6 +113,12 @@ function mergeOptions(partial, globalTransition, index) {
     var _a, _b, _c, _d;
     const globalPartial = ((_a = globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.partials) === null || _a === void 0 ? void 0 : _a[index]) || {};
     return Object.assign(Object.assign(Object.assign({}, globalTransition), globalPartial), { duration: (_b = partial.duration) !== null && _b !== void 0 ? _b : globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.duration, delay: (_c = partial.delay) !== null && _c !== void 0 ? _c : globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.delay, easing: (_d = partial.easing) !== null && _d !== void 0 ? _d : globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.easing });
+}
+function reverseTransition(transition) {
+    return {
+        from: transition.to,
+        to: transition.from,
+    };
 }
 function hidePartials(partials, element) {
     partials.forEach((partial) => {
@@ -479,10 +491,7 @@ class Xref {
         }
         // 4. Animate partials "in"
         if (partialsOutsideSwapHtml.length > 0) {
-            // this.options.debug ? console.log("Showing partials") : null;
             hidePartials(partialsOutsideSwapHtml, document.body);
-            // this.options.debug ? console.log("Applying partial in transitions") : null;
-            // showPartials(partialsOutsideSwapHtml, document.body);
             await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "in");
         }
         // 5. Partials visible and DOM is ready with new Page

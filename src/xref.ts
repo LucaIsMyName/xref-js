@@ -403,10 +403,10 @@ class Xref {
     if (partialsOutsideSwapHtml.length > 0) {
       this.options.debug ? console.log("Applying partial out transitions") : null;
       const partialsOutPromise = handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "out");
-      
+
       // Wait for the longest partial out animation to complete
       await partialsOutPromise;
-      
+
       // Hide partials after out animations
       hidePartials(partialsOutsideSwapHtml, document.body);
     }
@@ -443,7 +443,6 @@ class Xref {
 
     window.scrollTo(0, 0);
   }
-
 
   private getPartialsOutsideSwapHtml(): PartialTransition[] {
     const swapHtml = this.options.transition?.swapHtml || "body";

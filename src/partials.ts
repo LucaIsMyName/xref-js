@@ -10,14 +10,21 @@ export async function handlePartials(partials: PartialTransition[], oldElement: 
 
     return Array.from(elements).map((element) => {
       const mergedOptions = mergeOptions(partial, options.transition, index);
+      let transitionState = direction === "out" ? partial.out : partial.in;
 
-      if (direction === "out" && partial.out) {
-        return applyPartialTransition(element as HTMLElement, partial.out, mergedOptions, "out");
-      } else if (direction === "in" && partial.in) {
-        // remove visibility:;hidden in inline styles
-        element.style.removeProperty("visibility");
+      // If the transition for the current direction is not defined, reverse the other direction
+      if (!transitionState) {
+        const oppositeTransition = direction === "out" ? partial.in : partial.out;
+        if (oppositeTransition) {
+          transitionState = reverseTransition(oppositeTransition);
+        }
+      }
 
-        return applyPartialTransition(element as HTMLElement, partial.in, mergedOptions, "in");
+      if (transitionState) {
+        if (direction === "in") {
+          element.style.removeProperty("visibility");
+        }
+        return applyPartialTransition(element as HTMLElement, transitionState, mergedOptions, direction);
       }
       return Promise.resolve();
     });
@@ -34,6 +41,13 @@ function mergeOptions(partial: PartialTransition, globalTransition: TransitionOp
     duration: partial.duration ?? globalTransition?.duration,
     delay: partial.delay ?? globalTransition?.delay,
     easing: partial.easing ?? globalTransition?.easing,
+  };
+}
+
+function reverseTransition(transition: TransitionState): TransitionState {
+  return {
+    from: transition.to,
+    to: transition.from,
   };
 }
 
@@ -57,7 +71,6 @@ export function showPartials(partials: PartialTransition[], element: HTMLElement
 
 async function applyPartialTransition(element: HTMLElement, transitionState: TransitionState, options: TransitionOptions, direction: "in" | "out"): Promise<void> {
   return new Promise((resolve) => {
-    
     const duration = options.duration || 300;
     const delay = options.delay ?? 0;
     const easing = options.easing || "ease-in-out";
