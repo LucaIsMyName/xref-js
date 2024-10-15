@@ -433,10 +433,7 @@ class Xref {
 
     // 4. Animate partials "in"
     if (partialsOutsideSwapHtml.length > 0) {
-      // this.options.debug ? console.log("Showing partials") : null;
       hidePartials(partialsOutsideSwapHtml, document.body);
-      // this.options.debug ? console.log("Applying partial in transitions") : null;
-      // showPartials(partialsOutsideSwapHtml, document.body);
       await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "in");
     }
 

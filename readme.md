@@ -47,7 +47,6 @@ xref({
   transition: {
     swapHtml: 'main',
     duration: 300,
-    delay: 0,
     easing: 'ease-in-out',
     in: {
       from: { opacity: 0, transform: 'translateY(20px)' },
@@ -72,7 +71,25 @@ xref({
       onFinish: () => {
         console.log('onFinish() function executed')
       },
-    }
+    },
+    partials: [
+      {
+        element: 'head',
+        duration: 1000,
+        easing: 'ease',
+        in: {
+          from: {
+            transform: 'trabnslate(-100px)'
+          }
+        },
+        out: {
+          to: {
+            transform: 'trabnslate(-100px)'
+          }
+        }
+      },
+      // declare further `partials` as object
+    ]
   }
 });
 ```
