@@ -83,20 +83,28 @@ function camelToKebab(str) {
 
 async function handlePartials(partials, oldElement, newElement, options, direction) {
     options.debug ? console.log(`Handling partials for ${direction} transition`) : null;
-    const partialPromises = partials.flatMap((partial) => {
+    const partialPromises = partials.flatMap((partial, index) => {
         const elements = oldElement.querySelectorAll(partial.element);
         options.debug ? console.log(`Found ${elements.length} elements matching selector: ${partial.element}`) : null;
         return Array.from(elements).map((element) => {
+            const mergedOptions = mergeOptions(partial, options.transition, index);
             if (direction === "out" && partial.out) {
-                return applyPartialTransition(element, partial.out, options, "out");
+                return applyPartialTransition(element, partial.out, mergedOptions, "out");
             }
             else if (direction === "in" && partial.in) {
-                return applyPartialTransition(element, partial.in, options, "in");
+                // remove visibility:;hidden in inline styles
+                element.style.removeProperty("visibility");
+                return applyPartialTransition(element, partial.in, mergedOptions, "in");
             }
             return Promise.resolve();
         });
     });
     await Promise.all(partialPromises);
+}
+function mergeOptions(partial, globalTransition, index) {
+    var _a, _b, _c, _d;
+    const globalPartial = ((_a = globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.partials) === null || _a === void 0 ? void 0 : _a[index]) || {};
+    return Object.assign(Object.assign(Object.assign({}, globalTransition), globalPartial), { duration: (_b = partial.duration) !== null && _b !== void 0 ? _b : globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.duration, delay: (_c = partial.delay) !== null && _c !== void 0 ? _c : globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.delay, easing: (_d = partial.easing) !== null && _d !== void 0 ? _d : globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.easing });
 }
 function hidePartials(partials, element) {
     partials.forEach((partial) => {
@@ -106,30 +114,21 @@ function hidePartials(partials, element) {
         });
     });
 }
-function showPartials(partials, element) {
-    partials.forEach((partial) => {
-        const elements = element.querySelectorAll(partial.element);
-        elements.forEach((el) => {
-            el.style.visibility = "visible";
-        });
-    });
-}
 async function applyPartialTransition(element, transitionState, options, direction) {
     return new Promise((resolve) => {
-        const transitionOptions = options.transition;
-        const duration = transitionOptions.duration || 300;
-        const delay = transitionOptions.delay || 0;
-        const easing = transitionOptions.easing || "ease-in-out";
-        options.debug ? console.log(`Applying ${direction} transition to partial: ${element.tagName}`) : null;
+        var _a;
+        const duration = options.duration || 300;
+        const delay = (_a = options.delay) !== null && _a !== void 0 ? _a : 0;
+        const easing = options.easing || "ease-in-out";
         const keyframeName = createKeyframes(transitionState, direction);
-        const animationCSS = `${keyframeName} ${duration / 2}ms ${easing} ${delay}ms forwards`;
+        const animationCSS = `${keyframeName} ${duration}ms ${easing} ${delay}ms forwards`;
         element.style.setProperty("animation", animationCSS);
-        options.debug ? console.log(`Applied ${direction} animation to partial: ${animationCSS}`) : null;
-        options.debug ? console.log("Current partial element style:", element.style.cssText) : null;
+        console.log(`Applied ${direction} animation to partial: ${animationCSS}`);
+        console.log("Current partial element style:", element.style.cssText);
         // Force a reflow to ensure the animation is applied immediately
         void element.offsetWidth;
         const cleanup = () => {
-            options.debug ? console.log(`Animation end event fired for ${direction} transition on partial: ${element.tagName}`) : null;
+            console.log(`Animation end event fired for ${direction} transition on partial: ${element.tagName}`);
             element.style.removeProperty("animation");
             // Remove the keyframe immediately after the animation is complete
             removeKeyframes();
@@ -138,8 +137,8 @@ async function applyPartialTransition(element, transitionState, options, directi
                     element.style.setProperty(camelToKebab(key), value);
                 });
             }
-            options.debug ? console.log(`Cleaned up ${direction} animation for partial: ${element.tagName}`) : null;
-            options.debug ? console.log("Current partial element style after cleanup:", element.style.cssText) : null;
+            console.log(`Cleaned up ${direction} animation for partial: ${element.tagName}`);
+            console.log("Current partial element style after cleanup:", element.style.cssText);
             resolve();
         };
         element.addEventListener("animationend", cleanup, { once: true });
@@ -450,19 +449,19 @@ class Xref {
         this.runCallback("onStart");
         // Get partials outside swapHtml
         const partialsOutsideSwapHtml = this.getPartialsOutsideSwapHtml();
-        // 1. Apply all out partial animations in parallel (outside swapHtml)
+        // 1. Animate partials "out"
         if (partialsOutsideSwapHtml.length > 0) {
             this.options.debug ? console.log("Applying partial out transitions") : null;
-            await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "out");
-        }
-        // Hide partials before main out transition
-        if (partialsOutsideSwapHtml.length > 0) {
+            const partialsOutPromise = handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "out");
+            // Wait for the longest partial out animation to complete
+            await partialsOutPromise;
+            // Hide partials after out animations
             hidePartials(partialsOutsideSwapHtml, document.body);
         }
-        // 2. Apply main out transition
+        // 2. Animate swapHtml out
         if (outTransition) {
             this.options.debug ? console.log("Applying main out transition") : null;
-            await this.applyTransition(oldElement, outTransition, duration / 2, delay, easing, "out");
+            await this.applyTransition(oldElement, outTransition, duration, delay, easing, "out");
         }
         // Update content of swapHtml
         oldElement.innerHTML = newElement.innerHTML;
@@ -471,20 +470,20 @@ class Xref {
                 oldElement.setAttribute(attr.name, attr.value);
             }
         });
-        // 3. Apply main in transition
+        // 3. Animate swapHtml in
         if (inTransition) {
             this.options.debug ? console.log("Applying main in transition") : null;
-            await this.applyTransition(oldElement, inTransition, duration / 2, 0, easing, "in");
+            await this.applyTransition(oldElement, inTransition, duration, delay, easing, "in");
         }
-        // Show partials before applying in transitions
+        // 4. Animate partials "in"
         if (partialsOutsideSwapHtml.length > 0) {
-            showPartials(partialsOutsideSwapHtml, document.body);
-        }
-        // 4. Apply all in partial animations in parallel (outside swapHtml)
-        if (partialsOutsideSwapHtml.length > 0) {
-            this.options.debug ? console.log("Applying partial in transitions") : null;
+            // this.options.debug ? console.log("Showing partials") : null;
+            hidePartials(partialsOutsideSwapHtml, document.body);
+            // this.options.debug ? console.log("Applying partial in transitions") : null;
+            // showPartials(partialsOutsideSwapHtml, document.body);
             await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "in");
         }
+        // 5. Partials visible and DOM is ready with new Page
         this.setTransitionState("finished", true);
         this.runCallback("onFinish");
         window.scrollTo(0, 0);

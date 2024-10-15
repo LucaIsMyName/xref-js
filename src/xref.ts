@@ -399,21 +399,22 @@ class Xref {
     // Get partials outside swapHtml
     const partialsOutsideSwapHtml = this.getPartialsOutsideSwapHtml();
 
-    // 1. Apply all out partial animations in parallel (outside swapHtml)
+    // 1. Animate partials "out"
     if (partialsOutsideSwapHtml.length > 0) {
       this.options.debug ? console.log("Applying partial out transitions") : null;
-      await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "out");
-    }
-
-    // Hide partials before main out transition
-    if (partialsOutsideSwapHtml.length > 0) {
+      const partialsOutPromise = handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "out");
+      
+      // Wait for the longest partial out animation to complete
+      await partialsOutPromise;
+      
+      // Hide partials after out animations
       hidePartials(partialsOutsideSwapHtml, document.body);
     }
 
-    // 2. Apply main out transition
+    // 2. Animate swapHtml out
     if (outTransition) {
       this.options.debug ? console.log("Applying main out transition") : null;
-      await this.applyTransition(oldElement, outTransition, duration / 2, delay, easing, "out");
+      await this.applyTransition(oldElement, outTransition, duration, delay, easing, "out");
     }
 
     // Update content of swapHtml
@@ -424,28 +425,28 @@ class Xref {
       }
     });
 
-    // 3. Apply main in transition
+    // 3. Animate swapHtml in
     if (inTransition) {
       this.options.debug ? console.log("Applying main in transition") : null;
-      await this.applyTransition(oldElement, inTransition, duration / 2, 0, easing, "in");
+      await this.applyTransition(oldElement, inTransition, duration, delay, easing, "in");
     }
 
-    // Show partials before applying in transitions
+    // 4. Animate partials "in"
     if (partialsOutsideSwapHtml.length > 0) {
-      showPartials(partialsOutsideSwapHtml, document.body);
-    }
-
-    // 4. Apply all in partial animations in parallel (outside swapHtml)
-    if (partialsOutsideSwapHtml.length > 0) {
-      this.options.debug ? console.log("Applying partial in transitions") : null;
+      // this.options.debug ? console.log("Showing partials") : null;
+      hidePartials(partialsOutsideSwapHtml, document.body);
+      // this.options.debug ? console.log("Applying partial in transitions") : null;
+      // showPartials(partialsOutsideSwapHtml, document.body);
       await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "in");
     }
 
+    // 5. Partials visible and DOM is ready with new Page
     this.setTransitionState("finished", true);
     this.runCallback("onFinish");
 
     window.scrollTo(0, 0);
   }
+
 
   private getPartialsOutsideSwapHtml(): PartialTransition[] {
     const swapHtml = this.options.transition?.swapHtml || "body";
@@ -584,7 +585,6 @@ class Xref {
     this.setTransitionState("finished", true);
     this.runCallback("onFinish");
   }
-
 }
 
 function xref(options: XrefOptions = {}): Xref {

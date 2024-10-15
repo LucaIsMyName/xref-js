@@ -4,21 +4,37 @@ import { camelToKebab } from "./utils";
 export async function handlePartials(partials: PartialTransition[], oldElement: HTMLElement, newElement: HTMLElement, options: XrefOptions, direction: "in" | "out") {
   options.debug ? console.log(`Handling partials for ${direction} transition`) : null;
 
-  const partialPromises = partials.flatMap((partial) => {
+  const partialPromises = partials.flatMap((partial, index) => {
     const elements = oldElement.querySelectorAll(partial.element);
     options.debug ? console.log(`Found ${elements.length} elements matching selector: ${partial.element}`) : null;
 
     return Array.from(elements).map((element) => {
+      const mergedOptions = mergeOptions(partial, options.transition, index);
+
       if (direction === "out" && partial.out) {
-        return applyPartialTransition(element as HTMLElement, partial.out, options, "out");
+        return applyPartialTransition(element as HTMLElement, partial.out, mergedOptions, "out");
       } else if (direction === "in" && partial.in) {
-        return applyPartialTransition(element as HTMLElement, partial.in, options, "in");
+        // remove visibility:;hidden in inline styles
+        element.style.removeProperty("visibility");
+
+        return applyPartialTransition(element as HTMLElement, partial.in, mergedOptions, "in");
       }
       return Promise.resolve();
     });
   });
 
   await Promise.all(partialPromises);
+}
+
+function mergeOptions(partial: PartialTransition, globalTransition: TransitionOptions | undefined, index: number): TransitionOptions {
+  const globalPartial = globalTransition?.partials?.[index] || {};
+  return {
+    ...globalTransition,
+    ...globalPartial,
+    duration: partial.duration ?? globalTransition?.duration,
+    delay: partial.delay ?? globalTransition?.delay,
+    easing: partial.easing ?? globalTransition?.easing,
+  };
 }
 
 export function hidePartials(partials: PartialTransition[], element: HTMLElement) {
@@ -39,26 +55,25 @@ export function showPartials(partials: PartialTransition[], element: HTMLElement
   });
 }
 
-async function applyPartialTransition(element: HTMLElement, transitionState: TransitionState, options: XrefOptions, direction: "in" | "out"): Promise<void> {
+async function applyPartialTransition(element: HTMLElement, transitionState: TransitionState, options: TransitionOptions, direction: "in" | "out"): Promise<void> {
   return new Promise((resolve) => {
-    const transitionOptions = options.transition as TransitionOptions;
-    const duration = transitionOptions.duration || 300;
-    const delay = transitionOptions.delay || 0;
-    const easing = transitionOptions.easing || "ease-in-out";
+    
+    const duration = options.duration || 300;
+    const delay = options.delay ?? 0;
+    const easing = options.easing || "ease-in-out";
 
-    options.debug ? console.log(`Applying ${direction} transition to partial: ${element.tagName}`) : null;
     const keyframeName = createKeyframes(transitionState, direction);
-    const animationCSS = `${keyframeName} ${duration / 2}ms ${easing} ${delay}ms forwards`;
+    const animationCSS = `${keyframeName} ${duration}ms ${easing} ${delay}ms forwards`;
 
     element.style.setProperty("animation", animationCSS);
-    options.debug ? console.log(`Applied ${direction} animation to partial: ${animationCSS}`) : null;
-    options.debug ? console.log("Current partial element style:", element.style.cssText) : null;
+    console.log(`Applied ${direction} animation to partial: ${animationCSS}`);
+    console.log("Current partial element style:", element.style.cssText);
 
     // Force a reflow to ensure the animation is applied immediately
     void element.offsetWidth;
 
     const cleanup = () => {
-      options.debug ? console.log(`Animation end event fired for ${direction} transition on partial: ${element.tagName}`) : null;
+      console.log(`Animation end event fired for ${direction} transition on partial: ${element.tagName}`);
       element.style.removeProperty("animation");
 
       // Remove the keyframe immediately after the animation is complete
@@ -69,8 +84,8 @@ async function applyPartialTransition(element: HTMLElement, transitionState: Tra
           element.style.setProperty(camelToKebab(key), value as string);
         });
       }
-      options.debug ? console.log(`Cleaned up ${direction} animation for partial: ${element.tagName}`) : null;
-      options.debug ? console.log("Current partial element style after cleanup:", element.style.cssText) : null;
+      console.log(`Cleaned up ${direction} animation for partial: ${element.tagName}`);
+      console.log("Current partial element style after cleanup:", element.style.cssText);
 
       resolve();
     };

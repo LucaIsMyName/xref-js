@@ -157,7 +157,6 @@ interface XrefOptions: {
   transition?: {
     swapHtml?: string,
     duration?: number,
-    delay?: number,
     easing?: string,
     out?: {
       from?: Record<string?, string | number | boolean>,
@@ -187,7 +186,6 @@ interface XrefOptions: {
         {
           element?: string,
           duration?: number,
-          delay?: number,
           easing?: string,
           transition?: {
             out?: {
