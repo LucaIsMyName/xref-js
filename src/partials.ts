@@ -1,6 +1,10 @@
 import { XrefOptions, TransitionOptions, TransitionState, PartialTransition } from "./xref";
 import { camelToKebab } from "./utils";
 
+/**
+ * 
+ * @description Handle partial transitions for a given element 
+ */
 export async function handlePartials(partials: PartialTransition[], oldElement: HTMLElement, newElement: HTMLElement, options: XrefOptions, direction: "in" | "out") {
   options.debug ? console.log(`Handling partials for ${direction} transition`) : null;
 
@@ -33,6 +37,10 @@ export async function handlePartials(partials: PartialTransition[], oldElement: 
   await Promise.all(partialPromises);
 }
 
+/**
+ * 
+ * @description Merge partial transition options with global transition options
+ */
 function mergeOptions(partial: PartialTransition, globalTransition: TransitionOptions | undefined, index: number): TransitionOptions {
   const globalPartial = globalTransition?.partials?.[index] || {};
   return {
@@ -44,6 +52,10 @@ function mergeOptions(partial: PartialTransition, globalTransition: TransitionOp
   };
 }
 
+/**
+ * 
+ * @description Reverse the transition state
+ */
 function reverseTransition(transition: TransitionState): TransitionState {
   return {
     from: transition.to,
@@ -51,6 +63,10 @@ function reverseTransition(transition: TransitionState): TransitionState {
   };
 }
 
+/**
+ * 
+ * @description Hide partial elements
+ */
 export function hidePartials(partials: PartialTransition[], element: HTMLElement) {
   partials.forEach((partial) => {
     const elements = element.querySelectorAll(partial.element);
@@ -60,6 +76,10 @@ export function hidePartials(partials: PartialTransition[], element: HTMLElement
   });
 }
 
+/**
+ * 
+ * @description Show partial elements
+ */
 export function showPartials(partials: PartialTransition[], element: HTMLElement) {
   partials.forEach((partial) => {
     const elements = element.querySelectorAll(partial.element);
@@ -69,6 +89,9 @@ export function showPartials(partials: PartialTransition[], element: HTMLElement
   });
 }
 
+/**
+ * @description Apply partial transition to an element
+ * */
 async function applyPartialTransition(element: HTMLElement, transitionState: TransitionState, options: TransitionOptions, direction: "in" | "out"): Promise<void> {
   return new Promise((resolve) => {
     const duration = options.duration || 300;
@@ -109,7 +132,8 @@ async function applyPartialTransition(element: HTMLElement, transitionState: Tra
 
 function createKeyframes(transitionState: TransitionState, direction: "in" | "out"): string {
   const { from, to } = transitionState;
-  const keyframeName = `xref-partial-${direction}-${Math.random().toString(36).substr(2, 9)}`;
+  let randomId = Math.random().toString(36).substr(2, 9);
+  const keyframeName = `xref-partial-${direction}-${randomId}`;
 
   const keyframeCSS = `@keyframes ${keyframeName} {
     from {
@@ -126,13 +150,17 @@ function createKeyframes(transitionState: TransitionState, direction: "in" | "ou
 
   const styleElement = document.createElement("style");
   styleElement.textContent = keyframeCSS;
+  styleElement.setAttribute(keyframeName, '');
   document.head.appendChild(styleElement);
 
   return keyframeName;
 }
 
 function removeKeyframes(keyframeName: string) {
-  const styleElement = document.querySelector(`style:not([data-xref="true"]):last-of-type`);
+  // this is bad implementation, remove by keyframeName not :last-of-type selector
+  // const styleElement = document.querySelector(`style:not([data-xref="true"]):last-of-type`);
+
+  const styleElement = document.querySelector(`style[${keyframeName}]`);
   if (styleElement) {
     styleElement.remove();
   }

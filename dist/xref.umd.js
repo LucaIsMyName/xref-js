@@ -80,13 +80,16 @@
     }
 
     /**
-     *
      * @description Convert camelCase to kebab-case
      */
     function camelToKebab(str) {
         return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
     }
 
+    /**
+     *
+     * @description Handle partial transitions for a given element
+     */
     async function handlePartials(partials, oldElement, newElement, options, direction) {
         options.debug ? console.log(`Handling partials for ${direction} transition`) : null;
         const partialPromises = partials.flatMap((partial, index) => {
@@ -113,17 +116,29 @@
         });
         await Promise.all(partialPromises);
     }
+    /**
+     *
+     * @description Merge partial transition options with global transition options
+     */
     function mergeOptions(partial, globalTransition, index) {
         var _a, _b, _c, _d;
         const globalPartial = ((_a = globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.partials) === null || _a === void 0 ? void 0 : _a[index]) || {};
         return Object.assign(Object.assign(Object.assign({}, globalTransition), globalPartial), { duration: (_b = partial.duration) !== null && _b !== void 0 ? _b : globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.duration, delay: (_c = partial.delay) !== null && _c !== void 0 ? _c : globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.delay, easing: (_d = partial.easing) !== null && _d !== void 0 ? _d : globalTransition === null || globalTransition === void 0 ? void 0 : globalTransition.easing });
     }
+    /**
+     *
+     * @description Reverse the transition state
+     */
     function reverseTransition(transition) {
         return {
             from: transition.to,
             to: transition.from,
         };
     }
+    /**
+     *
+     * @description Hide partial elements
+     */
     function hidePartials(partials, element) {
         partials.forEach((partial) => {
             const elements = element.querySelectorAll(partial.element);
@@ -132,6 +147,9 @@
             });
         });
     }
+    /**
+     * @description Apply partial transition to an element
+     * */
     async function applyPartialTransition(element, transitionState, options, direction) {
         return new Promise((resolve) => {
             var _a;
@@ -149,7 +167,7 @@
                 console.log(`Animation end event fired for ${direction} transition on partial: ${element.tagName}`);
                 element.style.removeProperty("animation");
                 // Remove the keyframe immediately after the animation is complete
-                removeKeyframes();
+                removeKeyframes(keyframeName);
                 if (direction === "in") {
                     Object.entries(transitionState.to || {}).forEach(([key, value]) => {
                         element.style.setProperty(camelToKebab(key), value);
@@ -164,7 +182,8 @@
     }
     function createKeyframes(transitionState, direction) {
         const { from, to } = transitionState;
-        const keyframeName = `xref-partial-${direction}-${Math.random().toString(36).substr(2, 9)}`;
+        let randomId = Math.random().toString(36).substr(2, 9);
+        const keyframeName = `xref-partial-${direction}-${randomId}`;
         const keyframeCSS = `@keyframes ${keyframeName} {
     from {
       ${Object.entries(from || {})
@@ -179,11 +198,14 @@
   }`;
         const styleElement = document.createElement("style");
         styleElement.textContent = keyframeCSS;
+        styleElement.setAttribute(keyframeName, '');
         document.head.appendChild(styleElement);
         return keyframeName;
     }
     function removeKeyframes(keyframeName) {
-        const styleElement = document.querySelector(`style:not([data-xref="true"]):last-of-type`);
+        // this is bad implementation, remove by keyframeName not :last-of-type selector
+        // const styleElement = document.querySelector(`style:not([data-xref="true"]):last-of-type`);
+        const styleElement = document.querySelector(`style[${keyframeName}]`);
         if (styleElement) {
             styleElement.remove();
         }
@@ -563,6 +585,12 @@
         setTransitionState(key, value) {
             this.animationState[key] = value;
         }
+        /**
+         *
+         * @description This method runs the callback with the given name
+         * if it exists in the transition options. This is useful for
+         * running custom code at different stages of the transition.
+         */
         runCallback(callbackName) {
             var _a, _b;
             const callback = (_b = (_a = this.options.transition) === null || _a === void 0 ? void 0 : _a.callback) === null || _b === void 0 ? void 0 : _b[callbackName];
@@ -627,6 +655,11 @@
             this.runCallback("onFinish");
         }
     }
+    /**
+     * @description This function creates a new Xref instance
+     * with the given options and returns it. This is the main
+     * entry point for using Xref in a project.
+     */
     function xref(options = {}) {
         return new Xref(options);
     }

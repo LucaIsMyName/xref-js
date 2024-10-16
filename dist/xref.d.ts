@@ -179,6 +179,12 @@ declare class Xref {
      * for tracking the state of the transition.
      */
     private setTransitionState;
+    /**
+     *
+     * @description This method runs the callback with the given name
+     * if it exists in the transition options. This is useful for
+     * running custom code at different stages of the transition.
+     */
     private runCallback;
     /**
      * @description This method starts the transition
@@ -201,6 +207,11 @@ declare class Xref {
      * */
     finishTransition(): void;
 }
+/**
+ * @description This function creates a new Xref instance
+ * with the given options and returns it. This is the main
+ * entry point for using Xref in a project.
+ */
 declare function xref(options?: XrefOptions): Xref;
 
 export { type AnimationState, type HeadOptions, type PartialTransition, type PrefetchOptions, type TransitionCallbacks, type TransitionOptions, type TransitionState, type XrefOptions, xref as default };

@@ -515,6 +515,12 @@ class Xref {
     this.animationState[key] = value;
   }
 
+  /**
+   * 
+   * @description This method runs the callback with the given name
+   * if it exists in the transition options. This is useful for
+   * running custom code at different stages of the transition.
+   */
   private runCallback(callbackName: keyof TransitionCallbacks) {
     const callback = this.options.transition?.callback?.[callbackName];
     if (callback && typeof callback === "function") {
@@ -583,6 +589,11 @@ class Xref {
   }
 }
 
+/**
+ * @description This function creates a new Xref instance
+ * with the given options and returns it. This is the main
+ * entry point for using Xref in a project.
+ */
 function xref(options: XrefOptions = {}): Xref {
   return new Xref(options);
 }
