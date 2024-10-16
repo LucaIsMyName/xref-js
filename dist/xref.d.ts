@@ -19,6 +19,9 @@ interface PrefetchOptions {
     delay: number;
     event: string;
     selector?: string;
+    media?: boolean;
+    css?: boolean;
+    js?: boolean;
 }
 interface TransitionOptions {
     duration?: number;

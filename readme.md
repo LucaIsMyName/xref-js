@@ -38,6 +38,14 @@ import xref from 'xref-js';
 
 ```js
 xref({
+  debug: true,
+  head: {
+    update: true, // default: false
+    retrigger: {
+      css: true, // default: false
+      js: true // default: false
+    }
+  },
   /**
    * `prefetch` can fetch HTML Pages
    * before clicking on them by 
@@ -47,8 +55,11 @@ xref({
    */
   prefetch: {
     active: true,
-    // delay: 0,
-    // event: 'mouseover',
+    delay: 0,
+    event: 'mouseover',
+    media: true,
+    js: true,
+    css: true
   },
   /**
    * `transition` is the global 
@@ -248,12 +259,11 @@ interface XrefOptions: {
   prefetch?: {
     active?: boolean,
     event?: string,
-    delay?: number
+    delay?: number,
+    media?: boolean,
+    css?: boolean,
+    js?: boolean 
   },
-
-  /*****************************
-   ** Work in Progress / Idea **
-  ******************************/
   head?: {
     update?: boolean,
     retrigger?: {

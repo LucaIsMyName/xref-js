@@ -19,11 +19,15 @@ export interface HeadOptions {
     exclude?: string | RegExp;
   };
 }
+
 export interface PrefetchOptions {
   active: boolean;
   delay: number;
   event: string;
   selector?: string;
+  media?: boolean;
+  css?: boolean;
+  js?: boolean;
 }
 
 export interface TransitionOptions {
@@ -96,6 +100,14 @@ class Xref {
   constructor(options: XrefOptions = {}) {
     this.options = {
       updateHead: true,
+      prefetch: {
+        active: false,
+        delay: 0,
+        event: "mouseover",
+        media: false,
+        css: false,
+        js: false,
+      },
       ...options,
     };
     this.styleElement = document.createElement("style");
@@ -439,6 +451,21 @@ class Xref {
           scriptElement.textContent = newScript.textContent;
           oldElement.appendChild(scriptElement);
         }
+
+        // Remove duplicate styles
+        let allStyles = document.querySelectorAll("style");
+        let allStylesArray = Array.from(allStyles);
+        let allStylesText = allStylesArray.map((style) => style.textContent);
+        let allStylesTextSet = new Set(allStylesText);
+        let allStylesTextArray = Array.from(allStylesTextSet);
+
+        allStylesArray.forEach((style) => {
+          let styleText = style.textContent;
+          let styleTextIndex = allStylesTextArray.indexOf(styleText);
+          if (styleTextIndex > 0) {
+            style.remove();
+          }
+        });
       });
     };
 

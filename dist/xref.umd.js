@@ -5,31 +5,17 @@
 })(this, (function () { 'use strict';
 
     class Prefetcher {
-        /**
-         *
-         * @description Initializes the prefetcher
-         * with the given options.
-         */
         constructor(options, xrefOptions) {
             this.cache = new Map();
             this.options = options;
             this.xrefOptions = xrefOptions;
             this.init();
         }
-        /**
-         * @description Initializes the prefetcher by
-         * adding an event listener to the document.
-         */
         init() {
             if (!this.options.active)
                 return;
             document.addEventListener(this.options.event || "mouseover", this.handleEvent.bind(this));
         }
-        /**
-         *
-         * @description Handles the event by checking if the target
-         * is an anchor element and if it should be prefetched.
-         */
         handleEvent(event) {
             const target = event.target;
             const link = target.closest(this.options.selector || "a");
@@ -37,40 +23,95 @@
                 setTimeout(() => this.prefetch(link.href), this.options.delay || 100);
             }
         }
-        /**
-         *
-         * @description Checks if the link should be prefetched.
-         * It should be prefetched if it's an anchor element, it's
-         * not the current page, and it's not already in the cache.
-         */
         shouldPrefetch(link) {
             return !!(link.href && link.href.startsWith(window.location.origin) && link.href !== window.location.href && !this.cache.has(link.href));
         }
-        /**
-         *
-         * @description Fetches the content of the given URL
-         * and stores it in the cache. If the fetch fails, it logs
-         * an error to the console.
-         */
         async prefetch(url) {
             try {
                 const response = await fetch(url);
                 const text = await response.text();
                 this.cache.set(url, text);
-                this.xrefOptions.debug ? console.log(`Prefetched: ${url}`) : null;
+                this.xrefOptions.debug ? console.log(`Prefetched HTML: ${url}`) : null;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, "text/html");
+                if (this.options.media) {
+                    await this.prefetchMedia(doc);
+                }
+                if (this.options.css) {
+                    await this.prefetchCss(doc);
+                }
+                if (this.options.js) {
+                    await this.prefetchJs(doc);
+                }
             }
             catch (error) {
                 this.xrefOptions.debug ? console.error("Failed to prefetch:" + url, error) : null;
             }
         }
-        /**
-         *
-         * @description Gets the content of the given URL
-         * from the cache. If the content is not in the cache,
-         * it returns null. Otherwise, it returns the content.
-         * This method is used by the Xref instance to get the
-         * content of a URL before navigating to it.
-         */
+        async prefetchMedia(doc) {
+            const mediaElements = doc.querySelectorAll("img, video, audio");
+            const promises = Array.from(mediaElements).map(async (mediaElement) => {
+                const mediaSrc = mediaElement.src;
+                if (mediaSrc && !this.cache.has(mediaSrc) && !this.isCurrentlyLoaded(mediaSrc)) {
+                    try {
+                        await this.prefetchResource(mediaSrc);
+                    }
+                    catch (error) {
+                        this.xrefOptions.debug ? console.error(`Failed to prefetch media: ${mediaSrc}`, error) : null;
+                    }
+                }
+            });
+            await Promise.all(promises);
+        }
+        async prefetchCss(doc) {
+            const cssElements = doc.querySelectorAll("link[rel=stylesheet]");
+            const promises = Array.from(cssElements).map(async (cssElement) => {
+                const cssHref = cssElement.href;
+                if (cssHref && !this.cache.has(cssHref) && !this.isCurrentlyLoaded(cssHref)) {
+                    try {
+                        await this.prefetchResource(cssHref);
+                    }
+                    catch (error) {
+                        this.xrefOptions.debug ? console.error(`Failed to prefetch CSS: ${cssHref}`, error) : null;
+                    }
+                }
+            });
+            await Promise.all(promises);
+        }
+        async prefetchJs(doc) {
+            const jsElements = doc.querySelectorAll("script");
+            const promises = Array.from(jsElements).map(async (jsElement) => {
+                const jsSrc = jsElement.src;
+                if (jsSrc && !this.cache.has(jsSrc) && !this.isCurrentlyLoaded(jsSrc)) {
+                    try {
+                        await this.prefetchResource(jsSrc);
+                    }
+                    catch (error) {
+                        this.xrefOptions.debug ? console.error(`Failed to prefetch JS: ${jsSrc}`, error) : null;
+                    }
+                }
+            });
+            await Promise.all(promises);
+        }
+        async prefetchResource(url) {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                this.cache.set(url, URL.createObjectURL(blob));
+                this.xrefOptions.debug ? console.log(`Prefetched resource: ${url}`) : null;
+            }
+            catch (error) {
+                throw error;
+            }
+        }
+        isCurrentlyLoaded(url) {
+            const scripts = document.querySelectorAll("script");
+            const links = document.querySelectorAll("link");
+            const images = document.querySelectorAll("img");
+            const audios = document.querySelectorAll("audio");
+            const videos = document.querySelectorAll("video");
+            return Array.from(scripts).some((script) => script.src === url) || Array.from(links).some((link) => link.href === url) || Array.from(images).some((img) => img.src === url) || Array.from(audios).some((audio) => audio.src === url) || Array.from(videos).some((video) => video.src === url);
+        }
         getContent(url) {
             return this.cache.get(url) || null;
         }
@@ -235,7 +276,14 @@
             this.transitionCounter = 0;
             this.prefetcher = null;
             this.currentKeyframeName = null;
-            this.options = Object.assign({ updateHead: true }, options);
+            this.options = Object.assign({ updateHead: true, prefetch: {
+                    active: false,
+                    delay: 0,
+                    event: "mouseover",
+                    media: false,
+                    css: false,
+                    js: false,
+                } }, options);
             this.styleElement = document.createElement("style");
             this.styleElement.setAttribute("data-xref", "true");
             document.head.appendChild(this.styleElement);
@@ -528,6 +576,19 @@
                         scriptElement.textContent = newScript.textContent;
                         oldElement.appendChild(scriptElement);
                     }
+                    // Remove duplicate styles
+                    let allStyles = document.querySelectorAll("style");
+                    let allStylesArray = Array.from(allStyles);
+                    let allStylesText = allStylesArray.map((style) => style.textContent);
+                    let allStylesTextSet = new Set(allStylesText);
+                    let allStylesTextArray = Array.from(allStylesTextSet);
+                    allStylesArray.forEach((style) => {
+                        let styleText = style.textContent;
+                        let styleTextIndex = allStylesTextArray.indexOf(styleText);
+                        if (styleTextIndex > 0) {
+                            style.remove();
+                        }
+                    });
                 });
             };
             // Handle scripts in the head

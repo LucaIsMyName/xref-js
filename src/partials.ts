@@ -12,7 +12,7 @@ export async function handlePartials(partials: PartialTransition[], oldElement: 
     const elements = oldElement.querySelectorAll(partial.element);
     options.debug ? console.log(`Found ${elements.length} elements matching selector: ${partial.element}`) : null;
 
-    return Array.from(elements).map((element) => {
+    return Array.from(elements).map((element: any) => {
       const mergedOptions = mergeOptions(partial, options.transition, index);
       let transitionState = direction === "out" ? partial.out : partial.in;
 
