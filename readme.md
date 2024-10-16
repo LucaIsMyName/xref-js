@@ -275,4 +275,3 @@ interface XrefOptions: {
 - implement `options.head.active:boolean` -> change from `options.updateHead`
 - implement `options.head.exclude:Array<string>` and `options.head.include:Array<string>` -> update or not update scripts or css when pages are swapped
 - implement `option.prefetch.media:boolean`
-- change the way the partial css is set and removed to the `<head>` tag, by setting a `data-xref-partial="true"` and `data-xref-partial-id="{partialId}"`

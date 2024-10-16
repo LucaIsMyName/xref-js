@@ -393,8 +393,16 @@
             this.options.debug ? console.log("started -> updatePage() Method") : null;
             const parser = new DOMParser();
             const newDoc = parser.parseFromString(content, "text/html");
+            // Update the body content
             await this.updateBody(newDoc);
+            // Update the head content
             this.updateHead(newDoc);
+            // Handle all scripts (both in head and body)
+            this.handleScripts(document, newDoc);
+            // Trigger a custom event to signal that the page has been updated
+            const event = new CustomEvent("xrefPageUpdated");
+            document.dispatchEvent(event);
+            window.scrollTo(0, 0);
         }
         /**
          * @description This method updates the head of the document
@@ -419,7 +427,7 @@
             });
             // Add new elements
             Array.from(newHead.children).forEach((child) => {
-                if (child.tagName !== "STYLE" && child.tagName !== "TITLE") {
+                if ( /*child.tagName !== "STYLE" &&*/child.tagName !== "TITLE") {
                     const newChild = child.cloneNode(true);
                     oldHead.appendChild(newChild);
                     this.retriggerElement(newChild);
@@ -468,7 +476,64 @@
                 return;
             }
             await this.performTransition(oldElement, newElement);
-            window.scrollTo(0, 0);
+            // Update content of swapHtml
+            oldElement.innerHTML = newElement.innerHTML;
+            Array.from(newElement.attributes).forEach((attr) => {
+                if (attr.name !== "style") {
+                    oldElement.setAttribute(attr.name, attr.value);
+                }
+            });
+        }
+        /**
+         * @description This method handles the scripts in the new content
+         * by comparing them with the old content and adding or removing
+         * scripts as needed. It also re-executes inline scripts.
+         * This is necessary to ensure that the scripts are executed
+         * when the new content is added to the document.
+         */
+        handleScripts(oldDoc, newDoc) {
+            const handleScriptsInElement = (oldElement, newElement) => {
+                const oldScripts = Array.from(oldElement.querySelectorAll("script"));
+                const newScripts = Array.from(newElement.querySelectorAll("script"));
+                // Remove scripts that are in the old page but not in the new page
+                oldScripts.forEach((script) => {
+                    const matchingNewScript = newScripts.find((newScript) => newScript.src === script.src && newScript.textContent === script.textContent);
+                    if (!matchingNewScript) {
+                        script.remove();
+                    }
+                });
+                // Add new scripts or re-execute existing ones
+                newScripts.forEach((newScript) => {
+                    var _a, _b;
+                    const existingScript = oldScripts.find((script) => script.src === newScript.src && script.textContent === script.textContent);
+                    if (existingScript) {
+                        // Re-execute inline script
+                        if (!newScript.src) {
+                            const scriptElement = document.createElement("script");
+                            Array.from(newScript.attributes).forEach((attr) => scriptElement.setAttribute(attr.name, attr.value));
+                            scriptElement.textContent = newScript.textContent;
+                            (_a = existingScript.parentNode) === null || _a === void 0 ? void 0 : _a.replaceChild(scriptElement, existingScript);
+                        }
+                        // For external scripts, we create a new script element to force a reload
+                        else {
+                            const scriptElement = document.createElement("script");
+                            Array.from(newScript.attributes).forEach((attr) => scriptElement.setAttribute(attr.name, attr.value));
+                            (_b = existingScript.parentNode) === null || _b === void 0 ? void 0 : _b.replaceChild(scriptElement, existingScript);
+                        }
+                    }
+                    else {
+                        // Add new script
+                        const scriptElement = document.createElement("script");
+                        Array.from(newScript.attributes).forEach((attr) => scriptElement.setAttribute(attr.name, attr.value));
+                        scriptElement.textContent = newScript.textContent;
+                        oldElement.appendChild(scriptElement);
+                    }
+                });
+            };
+            // Handle scripts in the head
+            handleScriptsInElement(oldDoc.head, newDoc.head);
+            // Handle scripts in the body
+            handleScriptsInElement(oldDoc.body, newDoc.body);
         }
         /**
          * @description This method performs the transition

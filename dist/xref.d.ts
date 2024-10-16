@@ -153,6 +153,14 @@ declare class Xref {
      */
     private updateBody;
     /**
+     * @description This method handles the scripts in the new content
+     * by comparing them with the old content and adding or removing
+     * scripts as needed. It also re-executes inline scripts.
+     * This is necessary to ensure that the scripts are executed
+     * when the new content is added to the document.
+     */
+    private handleScripts;
+    /**
      * @description This method performs the transition
      * between the old and new content by applying the
      * in and out transitions to the elements.
