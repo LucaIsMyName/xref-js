@@ -2,7 +2,9 @@
 
 `xref` is a lightweight JavaScript library that transforms multi-page applications (MPAs) into smooth, single-page-like experiences. It leverages the power of AJAX and CSS transitions to create seamless page transitions without the complexity of a full single-page application (SPA) framework.
 
-*This package is a Experimental. API is subject to change.*
+*This package is a Experimental. API is subject to change. The Library works as intended (with bugs) as a `npm` package or as module inside a app. Inserting the xref.umd.js in eg. a WordPress-App won't work very good right now*
+
+In general `xref` assumes you don not want to update the `<head>`tag when a page-transition is happening. It only switched the ol body with the new body tag.
 
 ## Features
 
@@ -25,6 +27,7 @@ yarn add xref-js
 ```html
 <script src="https://unpkg.com/xref-js@latest/dist/xref.umd.js" defer></script>
 ```
+*Info: Buggy as `umd` module inside already coded websites*
 
 ## Basic Usage
 
@@ -234,12 +237,9 @@ interface XrefOptions: {
       paused?: boolean,
       finished?: boolean,
     },
-    /**********************
-    ** Work in Progress **
-    **********************/
     partials?: [
         {
-          element?: string, // any document.querySelectorAll(string) passable string
+          element?: string,
           duration?: number,
           easing?: string,
           transition?: {
