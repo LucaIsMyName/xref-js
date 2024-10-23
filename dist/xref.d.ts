@@ -141,6 +141,7 @@ declare class Xref {
      * based on the new content.
      */
     private updatePage;
+    private updateStyles;
     /**
      * @description This method updates the head of the document
      * with the new head from the fetched content. It updates

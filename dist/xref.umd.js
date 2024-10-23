@@ -452,6 +452,23 @@
             document.dispatchEvent(event);
             window.scrollTo(0, 0);
         }
+        updateStyles(oldDoc, newDoc) {
+            // Get all styles from old and new documents
+            const oldStyles = Array.from(oldDoc.querySelectorAll('style:not([data-xref="true"])'));
+            const newStyles = Array.from(newDoc.querySelectorAll("style"));
+            // Remove old styles
+            oldStyles.forEach((style) => style.remove());
+            // Add new styles
+            newStyles.forEach((style) => {
+                const newStyle = document.createElement("style");
+                newStyle.textContent = style.textContent;
+                // Copy any attributes
+                Array.from(style.attributes).forEach((attr) => {
+                    newStyle.setAttribute(attr.name, attr.value);
+                });
+                document.head.appendChild(newStyle);
+            });
+        }
         /**
          * @description This method updates the head of the document
          * with the new head from the fetched content. It updates
@@ -603,7 +620,56 @@
          * It also handles the transition timeline, duration,
          * delay, and easing.
          */
+        // private async performTransition(oldElement: HTMLElement, newElement: HTMLElement) {
+        //   this.options.debug ? console.log("Started performTransition") : null;
+        //   const transitionOptions = this.options.transition || {};
+        //   const duration = transitionOptions.duration || 300;
+        //   const delay = transitionOptions.delay || 0;
+        //   const easing = transitionOptions.easing || "ease-in-out";
+        //   let outTransition = transitionOptions.out;
+        //   let inTransition = transitionOptions.in;
+        //   this.setTransitionState("started", true);
+        //   this.runCallback("onStart");
+        //   // Get partials outside swapHtml
+        //   const partialsOutsideSwapHtml = this.getPartialsOutsideSwapHtml();
+        //   // 1. Animate partials "out"
+        //   if (partialsOutsideSwapHtml.length > 0) {
+        //     this.options.debug ? console.log("Applying partial out transitions") : null;
+        //     const partialsOutPromise = handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "out");
+        //     // Wait for the longest partial out animation to complete
+        //     await partialsOutPromise;
+        //     // Hide partials after out animations
+        //     hidePartials(partialsOutsideSwapHtml, document.body);
+        //   }
+        //   // 2. Animate swapHtml out
+        //   if (outTransition) {
+        //     this.options.debug ? console.log("Applying main out transition") : null;
+        //     await this.applyTransition(oldElement, outTransition, duration, delay, easing, "out");
+        //   }
+        //   // Update content of swapHtml
+        //   oldElement.innerHTML = newElement.innerHTML;
+        //   Array.from(newElement.attributes).forEach((attr) => {
+        //     if (attr.name !== "style") {
+        //       oldElement.setAttribute(attr.name, attr.value);
+        //     }
+        //   });
+        //   // 3. Animate swapHtml in
+        //   if (inTransition) {
+        //     this.options.debug ? console.log("Applying main in transition") : null;
+        //     await this.applyTransition(oldElement, inTransition, duration, delay, easing, "in");
+        //   }
+        //   // 4. Animate partials "in"
+        //   if (partialsOutsideSwapHtml.length > 0) {
+        //     hidePartials(partialsOutsideSwapHtml, document.body);
+        //     await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "in");
+        //   }
+        //   // 5. Partials visible and DOM is ready with new Page
+        //   this.setTransitionState("finished", true);
+        //   this.runCallback("onFinish");
+        //   window.scrollTo(0, 0);
+        // }
         async performTransition(oldElement, newElement) {
+            var _a, _b, _c, _d, _e, _f;
             this.options.debug ? console.log("Started performTransition") : null;
             const transitionOptions = this.options.transition || {};
             const duration = transitionOptions.duration || 300;
@@ -613,21 +679,36 @@
             let inTransition = transitionOptions.in;
             this.setTransitionState("started", true);
             this.runCallback("onStart");
-            // Get partials outside swapHtml
+            // Calculate total transition time for all phases
             const partialsOutsideSwapHtml = this.getPartialsOutsideSwapHtml();
+            const totalDuration = (partialsOutsideSwapHtml.length > 0 ? duration : 0) + // partials out
+                (outTransition ? duration : 0) + // swap html out
+                (inTransition ? duration : 0) + // swap html in
+                (partialsOutsideSwapHtml.length > 0 ? duration : 0); // partials in
+            // Track elapsed time
+            let elapsedTime = 0;
             // 1. Animate partials "out"
             if (partialsOutsideSwapHtml.length > 0) {
                 this.options.debug ? console.log("Applying partial out transitions") : null;
                 const partialsOutPromise = handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "out");
-                // Wait for the longest partial out animation to complete
                 await partialsOutPromise;
-                // Hide partials after out animations
+                elapsedTime += duration;
                 hidePartials(partialsOutsideSwapHtml, document.body);
             }
             // 2. Animate swapHtml out
             if (outTransition) {
                 this.options.debug ? console.log("Applying main out transition") : null;
                 await this.applyTransition(oldElement, outTransition, duration, delay, easing, "out");
+                elapsedTime += duration;
+            }
+            // Check if we've reached the midpoint
+            if (elapsedTime >= totalDuration / 2) {
+                // We've passed the midpoint - update styles now
+                if (((_a = this.options.head) === null || _a === void 0 ? void 0 : _a.update) && ((_c = (_b = this.options.head) === null || _b === void 0 ? void 0 : _b.retrigger) === null || _c === void 0 ? void 0 : _c.css)) {
+                    const parser = new DOMParser();
+                    const newDoc = parser.parseFromString(newElement.ownerDocument.documentElement.outerHTML, "text/html");
+                    this.updateStyles(document, newDoc);
+                }
             }
             // Update content of swapHtml
             oldElement.innerHTML = newElement.innerHTML;
@@ -636,6 +717,16 @@
                     oldElement.setAttribute(attr.name, attr.value);
                 }
             });
+            // If we haven't reached midpoint yet, wait for it
+            if (elapsedTime < totalDuration / 2) {
+                const timeToMidpoint = totalDuration / 2 - elapsedTime;
+                await new Promise((resolve) => setTimeout(resolve, timeToMidpoint));
+                if (((_d = this.options.head) === null || _d === void 0 ? void 0 : _d.update) && ((_f = (_e = this.options.head) === null || _e === void 0 ? void 0 : _e.retrigger) === null || _f === void 0 ? void 0 : _f.css)) {
+                    const parser = new DOMParser();
+                    const newDoc = parser.parseFromString(newElement.ownerDocument.documentElement.outerHTML, "text/html");
+                    this.updateStyles(document, newDoc);
+                }
+            }
             // 3. Animate swapHtml in
             if (inTransition) {
                 this.options.debug ? console.log("Applying main in transition") : null;
@@ -703,6 +794,8 @@
                 element.addEventListener("animationend", cleanup, { once: true });
             });
         }
+        // Current implementation relies on setTimeout and animationend events
+        // Recommendation: Use requestAnimationFrame for smoother animations
         /**
          * @description This method sets the transition state
          * based on the given key and value. This is useful
