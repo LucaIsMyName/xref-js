@@ -503,66 +503,7 @@ class Xref {
    * It also handles the transition timeline, duration,
    * delay, and easing.
    */
-  // private async performTransition(oldElement: HTMLElement, newElement: HTMLElement) {
-  //   this.options.debug ? console.log("Started performTransition") : null;
-  //   const transitionOptions = this.options.transition || {};
-  //   const duration = transitionOptions.duration || 300;
-  //   const delay = transitionOptions.delay || 0;
-  //   const easing = transitionOptions.easing || "ease-in-out";
 
-  //   let outTransition = transitionOptions.out;
-  //   let inTransition = transitionOptions.in;
-
-  //   this.setTransitionState("started", true);
-  //   this.runCallback("onStart");
-
-  //   // Get partials outside swapHtml
-  //   const partialsOutsideSwapHtml = this.getPartialsOutsideSwapHtml();
-
-  //   // 1. Animate partials "out"
-  //   if (partialsOutsideSwapHtml.length > 0) {
-  //     this.options.debug ? console.log("Applying partial out transitions") : null;
-  //     const partialsOutPromise = handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "out");
-
-  //     // Wait for the longest partial out animation to complete
-  //     await partialsOutPromise;
-
-  //     // Hide partials after out animations
-  //     hidePartials(partialsOutsideSwapHtml, document.body);
-  //   }
-
-  //   // 2. Animate swapHtml out
-  //   if (outTransition) {
-  //     this.options.debug ? console.log("Applying main out transition") : null;
-  //     await this.applyTransition(oldElement, outTransition, duration, delay, easing, "out");
-  //   }
-
-  //   // Update content of swapHtml
-  //   oldElement.innerHTML = newElement.innerHTML;
-  //   Array.from(newElement.attributes).forEach((attr) => {
-  //     if (attr.name !== "style") {
-  //       oldElement.setAttribute(attr.name, attr.value);
-  //     }
-  //   });
-
-  //   // 3. Animate swapHtml in
-  //   if (inTransition) {
-  //     this.options.debug ? console.log("Applying main in transition") : null;
-  //     await this.applyTransition(oldElement, inTransition, duration, delay, easing, "in");
-  //   }
-
-  //   // 4. Animate partials "in"
-  //   if (partialsOutsideSwapHtml.length > 0) {
-  //     hidePartials(partialsOutsideSwapHtml, document.body);
-  //     await handlePartials(partialsOutsideSwapHtml, document.body, document.body, this.options, "in");
-  //   }
-
-  //   // 5. Partials visible and DOM is ready with new Page
-  //   this.setTransitionState("finished", true);
-  //   this.runCallback("onFinish");
-
-  //   window.scrollTo(0, 0);
-  // }
   private async performTransition(oldElement: HTMLElement, newElement: HTMLElement) {
     this.options.debug ? console.log("Started performTransition") : null;
     const transitionOptions = this.options.transition || {};
@@ -651,6 +592,12 @@ class Xref {
     window.scrollTo(0, 0);
   }
 
+  /**
+   * 
+   * @description This method returns the partials that are outside
+   * the swapHtml element. This is useful for handling transitions
+   * on elements that are not part of the main content.
+   */
   private getPartialsOutsideSwapHtml(): PartialTransition[] {
     const swapHtml = this.options.transition?.swapHtml || "body";
     const swapHtmlElement = document.querySelector(swapHtml);
